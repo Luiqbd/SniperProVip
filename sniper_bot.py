@@ -370,77 +370,55 @@ class SniperBot:
             print(f"{Fore.CYAN}   WETH (trading): {weth_balance:.6f} WETH{Style.RESET_ALL}")
             print(f"{Fore.CYAN}   Trade amount: {trade_amount:.6f} WETH{Style.RESET_ALL}")
             
-            # Verificar modo de emergência
-            emergency_mode = balance_eth < EMERGENCY_MODE_THRESHOLD
-            min_eth_for_gas = 0.000001  # Mínimo ultra baixo após conversão automática
+            # =====================================================
+            # LÓGICA URGENTE: SEMPRE garantir ETH para gas PRIMEIRO
+            # =====================================================
             
-            if emergency_mode:
-                print(f"{Fore.YELLOW}🚨 MODO EMERGÊNCIA ATIVADO - ETH baixo: {balance_eth:.6f}{Style.RESET_ALL}")
-                trade_amount = min(trade_amount, EMERGENCY_TRADE_AMOUNT)
+            min_eth_for_gas = 0.000002  # Mínimo para gas na Base
+            
+            # Se ETH está baixo, CONVERTER WETH -> ETH IMEDIATAMENTE
+            if balance_eth < min_eth_for_gas:
+                print(f"{Fore.YELLOW}⚠️ ETH baixo ({balance_eth:.6f}) - Convertendo WETH para ETH...{Style.RESET_ALL}")
                 await self.telegram_bot.send_notification(
-                    f"🚨 **MODO EMERGÊNCIA**\n"
-                    f"⚠️ ETH baixo: {balance_eth:.6f}\n"
-                    f"💰 Trade reduzido: {trade_amount:.6f} WETH\n"
-                    f"🔧 Tentando conversão WETH->ETH...", 
+                    f"🔄 **Convertendo WETH → ETH**\n"
+                    f"💰 ETH atual: {balance_eth:.6f}\n"
+                    f"🎯 Necessário: {min_eth_for_gas:.6f}", 
                     "high"
                 )
                 
-                # FORÇAR conversão WETH->ETH quando em modo emergência
-                print(f"{Fore.CYAN}🔄 Forçando conversão WETH->ETH para modo emergência...{Style.RESET_ALL}")
-                conversion_success = await self.dex_handler.convert_weth_to_eth_if_needed(0.00005)  # Forçar conversão
+                # Forçar conversão
+                conversion_success = await self.dex_handler.convert_weth_to_eth_if_needed(min_eth_for_gas)
                 
                 if conversion_success:
-                    # Atualizar saldo ETH após conversão
-                    balance_eth = self.web3.from_wei(self.web3.eth.get_balance(WALLET_ADDRESS), 'ether')
-                    print(f"{Fore.GREEN}✅ Conversão realizada! Novo saldo ETH: {balance_eth:.6f}{Style.RESET_ALL}")
-                    await self.telegram_bot.send_notification(
-                        f"✅ **Conversão WETH->ETH realizada!**\n"
-                        f"💰 Novo saldo ETH: {balance_eth:.6f}\n"
-                        f"🚀 Continuando com o trade...", 
-                        "medium"
-                    )
+                    await asyncio.sleep(3)
+                    balance_eth = float(self.web3.from_wei(self.web3.eth.get_balance(WALLET_ADDRESS), 'ether'))
+                    print(f"{Fore.GREEN}✅ Conversão OK! ETH: {balance_eth:.6f}{Style.RESET_ALL}")
                 else:
-                    print(f"{Fore.YELLOW}⚠️ Conversão WETH->ETH não realizada - continuando com saldo atual{Style.RESET_ALL}")
+                    # Tentar de novo com valor menor
+                    conversion_success = await self.dex_handler.convert_weth_to_eth_if_needed(0.000001)
+                    if conversion_success:
+                        await asyncio.sleep(3)
+                        balance_eth = float(self.web3.from_wei(self.web3.eth.get_balance(WALLET_ADDRESS), 'ether'))
             
-            # Se o saldo total é muito baixo, usar estratégia de micro-trades
-            total_balance = balance_eth + weth_balance
-            if total_balance < 0.001:  # Menos de 0.001 ETH total
-                print(f"{Fore.YELLOW}💡 Saldo baixo detectado - usando micro-trades{Style.RESET_ALL}")
-                # Usar apenas 10% do WETH disponível para preservar gas
-                trade_amount = min(trade_amount, weth_balance * 0.1)
-                print(f"{Fore.YELLOW}   Ajustando trade para: {trade_amount:.6f} WETH{Style.RESET_ALL}")
-            
-            # Verificar se ainda tem saldo suficiente
+            # Ajustar trade_amount se WETH insuficiente
             if weth_balance < trade_amount:
-                # Tentar usar o máximo disponível se for pelo menos 50% do planejado
-                if weth_balance >= trade_amount * 0.5:
-                    trade_amount = weth_balance * 0.9  # Usar 90% do disponível
-                    print(f"{Fore.YELLOW}💡 Ajustando trade para saldo disponível: {trade_amount:.6f} WETH{Style.RESET_ALL}")
+                available_weth = weth_balance * 0.95
+                if available_weth >= 0.000050:
+                    trade_amount = available_weth
+                    print(f"{Fore.YELLOW}💡 Usando WETH disponível: {trade_amount:.6f}{Style.RESET_ALL}")
                 else:
-                    print(f"{Fore.YELLOW}⚠️ WETH insuficiente para trade!{Style.RESET_ALL}")
+                    print(f"{Fore.RED}❌ WETH insuficiente!{Style.RESET_ALL}")
                     await self.telegram_bot.send_notification(
-                        f"⚠️ **Compra cancelada: {token_info['symbol']}**\n"
-                        f"💰 WETH insuficiente\n"
-                        f"📊 Disponível: {weth_balance:.6f} WETH\n"
-                        f"📊 Necessário: {trade_amount:.6f} WETH", 
+                        f"❌ **Compra cancelada**\n"
+                        f"💰 WETH: {weth_balance:.6f}\n"
+                        f"⚠️ Saldo muito baixo", 
                         "high"
                     )
                     return
             
-            # Verificar gas - se muito baixo, cancelar para preservar fundos
-            if balance_eth < min_eth_for_gas:
-                print(f"{Fore.RED}❌ ETH insuficiente para gas!{Style.RESET_ALL}")
-                print(f"{Fore.RED}   ETH disponível: {balance_eth:.6f}{Style.RESET_ALL}")
-                print(f"{Fore.RED}   ETH mínimo necessário: {min_eth_for_gas:.6f}{Style.RESET_ALL}")
-                
-                await self.telegram_bot.send_notification(
-                    f"❌ **Compra cancelada: {token_info['symbol']}**\n"
-                    f"⛽ ETH insuficiente para gas\n"
-                    f"📊 Disponível: {balance_eth:.6f} ETH\n"
-                    f"📊 Necessário: {min_eth_for_gas:.6f} ETH\n"
-                    f"💡 Adicione mais ETH para continuar trading", 
-                    "high"
-                )
+            # Verificação final ETH
+            if balance_eth < 0.000001:
+                print(f"{Fore.RED}❌ ETH insuficiente mesmo após conversão!{Style.RESET_ALL}")
                 return
             
             # Calcular quantidade a comprar

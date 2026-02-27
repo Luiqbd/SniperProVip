@@ -30,11 +30,16 @@ PROFIT_REINVESTMENT_RATE = float(os.getenv('PROFIT_REINVESTMENT_RATE', '0.6'))  
 MAX_TRADE_PERCENTAGE = float(os.getenv('MAX_TRADE_PERCENTAGE', '30'))  # Máximo 30% do saldo por trade (agressivo)
 MIN_TRADE_AMOUNT = float(os.getenv('MIN_TRADE_AMOUNT', '0.000050'))  # Mínimo para trades pequenos
 
-# Modo de Emergência para Saldos Baixos
-EMERGENCY_MODE_THRESHOLD = float(os.getenv('EMERGENCY_MODE_THRESHOLD', '0.00001'))  # Ativar modo emergência se ETH < 0.00001
-EMERGENCY_TRADE_AMOUNT = float(os.getenv('EMERGENCY_TRADE_AMOUNT', '0.000020'))  # Trade ULTRA mínimo em modo emergência
-EMERGENCY_GAS_PRICE = int(os.getenv('EMERGENCY_GAS_PRICE', '1'))  # Gas price ULTRA baixo em emergência (0.1 gwei)
-BALANCE_GROWTH_THRESHOLD = float(os.getenv('BALANCE_GROWTH_THRESHOLD', '0.003980'))  # Quando dobrar trade size
+# Modo de Emergência para Saldos Baixos - OTIMIZADO PARA SALDO PEQUENO
+EMERGENCY_MODE_THRESHOLD = float(os.getenv('EMERGENCY_MODE_THRESHOLD', '0.000002'))  # Ativar modo emergência se ETH < 0.000002
+EMERGENCY_TRADE_AMOUNT = float(os.getenv('EMERGENCY_TRADE_AMOUNT', '0.000200'))  # Trade maior em modo emergência (usa mais do saldo)
+EMERGENCY_GAS_PRICE = int(os.getenv('EMERGENCY_GAS_PRICE', '0.1'))  # Gas price mínimo
+BALANCE_GROWTH_THRESHOLD = float(os.getenv('BALANCE_GROWTH_THRESHOLD', '0.005000'))  # Quando dobrar trade size
+
+# Auto-scaling - Crescimento automático do investimento
+AUTO_SCALE_ENABLED = os.getenv('AUTO_SCALE_ENABLED', 'true').lower() == 'true'
+SCALE_UP_THRESHOLD = float(os.getenv('SCALE_UP_THRESHOLD', '0.002500'))  # Quando saldo chegar a 0.0025, aumentar trades
+SCALE_DOWN_THRESHOLD = float(os.getenv('SCALE_DOWN_THRESHOLD', '0.001500'))  # Se saldo cair para 0.0015, diminuir trades
 
 # Configurações de Trading Inteligente - MODO AGRESSIVO PARA CRESCIMENTO RÁPIDO
 MEMECOIN_MODE = os.getenv('MEMECOIN_MODE', 'true').lower() == 'true'  # Habilitado para memecoins
