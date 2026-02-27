@@ -576,7 +576,7 @@ class DEXHandler:
                     print("❌ Não foi possível obter ETH suficiente para gas")
                     # Tentar usar WETH diretamente para gas se conversão falhar
                     print("🔄 Tentando usar WETH diretamente para transação...")
-                    return await self._execute_trade_with_weth_gas(router_address, token_address, amount, is_buy, slippage)
+                    return await self._execute_trade_with_weth_gas(router_address, token_address, amount_in, is_buy, slippage)
             
             router_contract = self.web3.eth.contract(
                 address=router_address,
