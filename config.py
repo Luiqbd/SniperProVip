@@ -33,7 +33,7 @@ MIN_TRADE_AMOUNT = float(os.getenv('MIN_TRADE_AMOUNT', '0.000050'))  # Mínimo p
 # Modo de Emergência para Saldos Baixos - OTIMIZADO PARA SALDO PEQUENO
 EMERGENCY_MODE_THRESHOLD = float(os.getenv('EMERGENCY_MODE_THRESHOLD', '0.000002'))  # Ativar modo emergência se ETH < 0.000002
 EMERGENCY_TRADE_AMOUNT = float(os.getenv('EMERGENCY_TRADE_AMOUNT', '0.000200'))  # Trade maior em modo emergência (usa mais do saldo)
-EMERGENCY_GAS_PRICE = int(os.getenv('EMERGENCY_GAS_PRICE', '0.1'))  # Gas price mínimo
+EMERGENCY_GAS_PRICE = float(os.getenv('EMERGENCY_GAS_PRICE', '0.1'))  # Gas price mínimo
 BALANCE_GROWTH_THRESHOLD = float(os.getenv('BALANCE_GROWTH_THRESHOLD', '0.005000'))  # Quando dobrar trade size
 
 # Auto-scaling - Crescimento automático do investimento
