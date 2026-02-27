@@ -1,0 +1,35 @@
+services:
+  - type: web
+    name: sniper-bot-v5
+    env: docker
+    dockerfilePath: ./Dockerfile
+    plan: starter
+    region: oregon
+    branch: main
+    envVars:
+      - key: PRIVATE_KEY
+        sync: false
+      - key: WALLET_ADDRESS
+        sync: false
+      - key: BASE_RPC_URL
+        value: https://mainnet.base.org
+      - key: CHAIN_ID
+        value: "8453"
+      - key: TRADE_AMOUNT_WETH
+        value: "0.001990"
+      - key: MAX_GAS_PRICE
+        value: "50"
+      - key: SLIPPAGE_TOLERANCE
+        value: "5"
+      - key: ENABLE_MEV_PROTECTION
+        value: "true"
+      - key: MIN_LIQUIDITY_USD
+        value: "10000"
+      - key: ENABLE_UNISWAP_V3
+        value: "true"
+      - key: ENABLE_AERODROME
+        value: "true"
+      - key: ENABLE_BASESWAP
+        value: "true"
+      - key: ENABLE_SUSHISWAP
+        value: "true"
