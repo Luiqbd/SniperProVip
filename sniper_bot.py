@@ -374,15 +374,57 @@ class SniperBot:
             # LÓGICA URGENTE: SEMPRE garantir ETH para gas PRIMEIRO
             # =====================================================
             
+            # Verificar se tem ETH mínimo para QUALQUER transação
+            MIN_ETH_FOR_ANY_TX = 0.00003  # Mínimo para fazer qualquer transação na Base
+            
+            if balance_eth < MIN_ETH_FOR_ANY_TX:
+                print(f"{Fore.RED}⚠️ ETH CRÍTICAMENTE BAIXO!{Style.RESET_ALL}")
+                print(f"{Fore.RED}   ETH atual: {balance_eth:.9f}{Style.RESET_ALL}")
+                print(f"{Fore.RED}   Mínimo para transação: {MIN_ETH_FOR_ANY_TX}{Style.RESET_ALL}")
+                
+                # Tentar conversão automática primeiro
+                print(f"{Fore.YELLOW}🔄 Tentando conversão automática...{Style.RESET_ALL}")
+                conversion_success = await self.dex_handler.convert_weth_to_eth_if_needed(MIN_ETH_FOR_ANY_TX)
+                
+                if conversion_success:
+                    await asyncio.sleep(5)  # Aguardar confirmação
+                    balance_eth = float(self.web3.from_wei(self.web3.eth.get_balance(WALLET_ADDRESS), 'ether'))
+                    print(f"{Fore.GREEN}✅ Conversão OK! ETH: {balance_eth:.9f}{Style.RESET_ALL}")
+                else:
+                    # Verificar se é caso de "saldo zero" - situação irrecuperável sem ETH
+                    if balance_eth < 0.000001:
+                        print(f"{Fore.RED}🚨 SITUAÇÃO CRÍTICA: ETH ZERO!{Style.RESET_ALL}")
+                        print(f"{Fore.RED}   Não é possível fazer nenhuma transação!{Style.RESET_ALL}")
+                        await self.telegram_bot.send_notification(
+                            f"🚨 **CRISE DE GAS!**\n"
+                            f"💰 ETH atual: {balance_eth:.9f}\n"
+                            f"⚠️ Você NÃO tem ETH para pagar gas!\n"
+                            f"💡 ENVIE ETH (não WETH) para sua carteira:\n"
+                            f"   `{WALLET_ADDRESS}`\n"
+                            f"⚠️ Mínimo recomendado: 0.001 ETH\n"
+                            f"❌ Compra cancelada", 
+                            "high"
+                        )
+                    else:
+                        await self.telegram_bot.send_notification(
+                            f"🚨 **ETH INSUFICIENTE!**\n"
+                            f"💰 ETH atual: {balance_eth:.9f}\n"
+                            f"⚠️ Mínimo necessário: {MIN_ETH_FOR_ANY_TX}\n"
+                            f"💡 Adicione ETH à sua carteira!\n"
+                            f"❌ Compra cancelada", 
+                            "high"
+                        )
+                    return
+            
             min_eth_for_gas = 0.000002  # Mínimo para gas na Base
             
-            # Se ETH está baixo, CONVERTER WETH -> ETH IMEDIATAMENTE
+            # Se ETH está baixo, CONVERTER WETH -> ETH
             if balance_eth < min_eth_for_gas:
                 print(f"{Fore.YELLOW}⚠️ ETH baixo ({balance_eth:.6f}) - Convertendo WETH para ETH...{Style.RESET_ALL}")
                 await self.telegram_bot.send_notification(
                     f"🔄 **Convertendo WETH → ETH**\n"
-                    f"💰 ETH atual: {balance_eth:.6f}\n"
-                    f"🎯 Necessário: {min_eth_for_gas:.6f}", 
+                    f"💰 ETH atual: {balance_eth:.9f}\n"
+                    f"🎯 Necessário: {min_eth_for_gas}", 
                     "high"
                 )
                 
@@ -390,9 +432,9 @@ class SniperBot:
                 conversion_success = await self.dex_handler.convert_weth_to_eth_if_needed(min_eth_for_gas)
                 
                 if conversion_success:
-                    await asyncio.sleep(3)
+                    await asyncio.sleep(5)
                     balance_eth = float(self.web3.from_wei(self.web3.eth.get_balance(WALLET_ADDRESS), 'ether'))
-                    print(f"{Fore.GREEN}✅ Conversão OK! ETH: {balance_eth:.6f}{Style.RESET_ALL}")
+                    print(f"{Fore.GREEN}✅ Conversão OK! ETH: {balance_eth:.9f}{Style.RESET_ALL}")
                 else:
                     # Tentar de novo com valor menor
                     conversion_success = await self.dex_handler.convert_weth_to_eth_if_needed(0.000001)

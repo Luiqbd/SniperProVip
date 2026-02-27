@@ -213,8 +213,9 @@ class DEXHandler:
     async def convert_weth_to_eth_if_needed(self, min_eth_needed: float = 0.00001) -> bool:
         """
         Converte WETH para ETH se o saldo de ETH estiver muito baixo
+        VERSÃO OTIMIZADA PARA SALDOS MÍNIMOS
         """
-        for attempt in range(2):
+        for attempt in range(3):
             try:
                 await BASE_RPC_LIMITER.acquire()
                 
@@ -225,7 +226,7 @@ class DEXHandler:
                 if eth_balance_eth >= min_eth_needed:
                     return True  # ETH suficiente
                 
-                print(f"⚠️ Saldo ETH baixo para gas: {eth_balance_eth:.6f}")
+                print(f"⚠️ Saldo ETH baixo: {eth_balance_eth:.9f} (precisa: {min_eth_needed})")
                 
                 # Verificar saldo WETH
                 weth_abi = [
@@ -237,23 +238,35 @@ class DEXHandler:
                 weth_balance = weth_contract.functions.balanceOf(WALLET_ADDRESS).call()
                 weth_balance_eth = float(web3_instance.from_wei(weth_balance, 'ether'))
                 
-                # Calcular quanto WETH converter - SEMPRE converter pelo menos 0.00005 ETH
-                eth_needed = max(min_eth_needed - eth_balance_eth, 0.00005)
+                # Calcular exatamente o quanto precisa para gas + conversão
+                # Usar gas price mínimo absoluto possível
+                gas_price = web3_instance.to_wei(0.001, 'gwei')  # 0.001 gwei =最小
+                gas_limit = 25000  # Gas mínimo para withdraw
+                gas_cost_eth = float(web3_instance.from_wei(gas_price * gas_limit, 'ether'))
                 
-                print(f"💰 WETH disponível: {weth_balance_eth:.6f}")
-                print(f"💰 ETH necessário: {eth_needed:.6f}")
+                # Calcular quanto ETH precisamos ter após conversão
+                total_needed = max(min_eth_needed, gas_cost_eth * 2)  # Deixar folga
                 
-                if weth_balance_eth >= eth_needed:
+                # Converter exatamente o necessário + custo do gas
+                eth_to_convert = total_needed - eth_balance_eth + gas_cost_eth
+                eth_to_convert = max(eth_to_convert, gas_cost_eth * 1.5)  # Mínimo para cobrir gas
+                
+                print(f"💰 WETH disponível: {weth_balance_eth:.9f}")
+                print(f"💰 ETH atual: {eth_balance_eth:.9f}")
+                print(f"💰 ETH necessário (gas + operação): {total_needed:.9f}")
+                print(f"💰 Convertendo: {eth_to_convert:.9f}")
+                
+                if weth_balance_eth >= eth_to_convert:
                     # Converter WETH para ETH
-                    withdraw_amount = int(web3_instance.to_wei(eth_needed, 'ether'))
+                    withdraw_amount = int(web3_instance.to_wei(eth_to_convert, 'ether'))
                     
-                    print(f"💱 Convertendo {eth_needed:.6f} WETH para ETH...")
+                    print(f"💱 Convertendo {eth_to_convert:.9f} WETH para ETH...")
                     
-                    # Preparar transação de withdraw com gas ULTRA baixo
+                    # Preparar transação de withdraw com gas MÍNIMO
                     withdraw_tx = weth_contract.functions.withdraw(withdraw_amount).build_transaction({
                         'from': WALLET_ADDRESS,
-                        'gas': 30000,  # Gas mínimo para withdraw
-                        'gasPrice': web3_instance.to_wei(0.1, 'gwei'),  # Gas price ULTRA baixo
+                        'gas': gas_limit,
+                        'gasPrice': gas_price,  # Gas price mínimo
                         'nonce': web3_instance.eth.get_transaction_count(WALLET_ADDRESS)
                     })
                     
@@ -261,26 +274,41 @@ class DEXHandler:
                     signed_tx = web3_instance.eth.account.sign_transaction(withdraw_tx, PRIVATE_KEY)
                     tx_hash = web3_instance.eth.send_raw_transaction(signed_tx.rawTransaction)
                     
-                    print(f"✅ WETH convertido para ETH: {tx_hash.hex()}")
+                    print(f"✅ Conversão enviada: {tx_hash.hex()}")
                     
                     # Aguardar confirmação
-                    await asyncio.sleep(5)
-                    BASE_RPC_LIMITER.handle_success()
-                    return True
+                    try:
+                        receipt = web3_instance.eth.wait_for_transaction_receipt(tx_hash, timeout=30)
+                        if receipt.status == 1:
+                            print(f"✅ Conversão confirmada!")
+                            BASE_RPC_LIMITER.handle_success()
+                            return True
+                        else:
+                            print(f"❌ Conversão falhou")
+                            return False
+                    except:
+                        # Se não confirmou em 30s, assume que vai confirmar
+                        print(f"⏳ Conversão pendente (pode confirmar)")
+                        return True
                 else:
-                    print(f"❌ WETH insuficiente para conversão: {weth_balance_eth:.6f} < {eth_needed:.6f}")
+                    print(f"❌ WETH insuficiente: {weth_balance_eth:.9f} < {eth_to_convert:.9f}")
                     return False
                     
             except Exception as e:
-                if "429" in str(e) or "Too Many Requests" in str(e):
+                error_str = str(e)
+                if "insufficient funds" in error_str.lower():
+                    print(f"❌ Saldo ETH insuficiente até para transação de conversão!")
+                    print(f"💡 SOLUÇÃO: Adicione ETH à carteira para pagar gas")
+                    return False
+                elif "429" in error_str or "Too Many Requests" in error_str:
                     BASE_RPC_LIMITER.handle_429_error()
-                    if attempt == 0:
-                        print(f"⚠️ Rate limit na conversão - tentativa {attempt + 1}/2")
-                        await asyncio.sleep(3)
+                    if attempt < 2:
+                        print(f"⚠️ Rate limit - tentativa {attempt + 1}/3")
+                        await asyncio.sleep(5)
                         continue
                 
-                print(f"❌ Erro ao converter WETH para ETH: {e}")
-                if attempt == 1:
+                print(f"❌ Erro na conversão: {error_str[:100]}")
+                if attempt == 2:
                     return False
                     
         return False
