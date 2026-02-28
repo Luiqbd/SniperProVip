@@ -575,18 +575,20 @@ class DEXHandler:
         Executa o swap na DEX especificada com melhor tratamento de erros
         Returns: transaction hash ou None se falhar
         """
+        import time
+        from eth_account import Account
+        
+        print(f"🔄 Iniciando swap: {'Compra' if is_buy else 'Venda'} de {self.web3.from_wei(amount_in, 'ether'):.6f} {'WETH' if is_buy else 'tokens'}")
+        print(f"📍 Router: {router_address}")
+        
         try:
-            import time
-            from eth_account import Account
-            
-            print(f"🔄 Iniciando swap: {'Compra' if is_buy else 'Venda'} de {self.web3.from_wei(amount_in, 'ether'):.6f} {'WETH' if is_buy else 'tokens'}")
-            
             # Verificar saldos antes da transação
             if is_buy:
                 weth_balance = await self.get_weth_balance()
                 required_weth = self.web3.from_wei(amount_in, 'ether')
+                print(f"💰 Saldo WETH: {weth_balance:.6f}, Necessário: {required_weth:.6f}")
                 if weth_balance < required_weth:
-                    print(f"❌ Saldo WETH insuficiente: {weth_balance:.6f} < {required_weth:.6f}")
+                    print(f"❌ Saldo WETH insuficiente!")
                     return None
             
             # Verificar ETH para gas com rate limiting
@@ -594,19 +596,27 @@ class DEXHandler:
             web3_instance = self._get_web3_instance()
             
             eth_balance = web3_instance.eth.get_balance(WALLET_ADDRESS)
-            eth_balance_eth = web3_instance.from_wei(eth_balance, 'ether')
-            min_eth_for_gas = 0.00005  # Aumentado para forçar conversão
+            eth_balance_eth = float(web3_instance.from_wei(eth_balance, 'ether'))
+            print(f"💰 Saldo ETH: {eth_balance_eth:.6f}")
+            
+            min_eth_for_gas = 0.00005
             
             # SEMPRE tentar conversão se ETH < 0.00005
             if eth_balance_eth < min_eth_for_gas:
                 print(f"⚠️ ETH baixo ({eth_balance_eth:.6f}) - forçando conversão WETH->ETH")
                 if not await self.convert_weth_to_eth_if_needed(min_eth_for_gas):
                     print("❌ Não foi possível obter ETH suficiente para gas")
-                    # Tentar usar WETH diretamente para gas se conversão falhar
-                    print("🔄 Tentando usar WETH diretamente para transação...")
-                    return await self._execute_trade_with_weth_gas(router_address, token_address, amount_in, is_buy, slippage)
+                    return None
+                # Atualizar saldo ETH
+                eth_balance = web3_instance.eth.get_balance(WALLET_ADDRESS)
+                eth_balance_eth = float(web3_instance.from_wei(eth_balance, 'ether'))
+                print(f"💰 Saldo ETH após conversão: {eth_balance_eth:.6f}")
             
-            router_contract = self.web3.eth.contract(
+            # Verificar checksum do router
+            router_address = web3_instance.to_checksum_address(router_address)
+            token_address = web3_instance.to_checksum_address(token_address)
+            
+            router_contract = web3_instance.eth.contract(
                 address=router_address,
                 abi=self.get_router_abi()
             )
