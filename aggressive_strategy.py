@@ -23,26 +23,26 @@ class AggressiveStrategy:
         
         # Configurações agressivas para crescimento rápido
         self.base_trade_amount = TRADE_AMOUNT_WETH  # 0.000398 WETH (20% do saldo)
-        self.max_trade_percentage = 0.35  # Até 35% do saldo por trade (muito agressivo)
-        self.profit_target = 0.30  # 30% de lucro por trade (agressivo)
-        self.stop_loss = 0.15  # 15% de stop loss (controlado)
-        self.quick_profit_threshold = 0.10  # Vender com 10% de lucro se muito volátil
+        self.max_trade_percentage = 0.40  # Até 40% do saldo por trade (muito agressivo)
+        self.profit_target = 0.20  # 20% de lucro por trade (agressivo)
+        self.stop_loss = 0.10  # 10% de stop loss (controlado)
+        self.quick_profit_threshold = 0.08  # Vender com 8% de lucro se muito volátil
         
         # Sistema de scaling dinâmico
         self.scaling_factor = 1.0
         self.consecutive_wins = 0
         self.consecutive_losses = 0
-        self.max_consecutive_losses = 3
+        self.max_consecutive_losses = 5
         
-        # Filtros agressivos para tokens
-        self.min_score_aggressive = 10  # Score mínimo extremamente baixo para máximas oportunidades
-        self.memecoin_bonus = 15  # Bonus para memecoins
-        self.new_token_bonus = 10  # Bonus para tokens novos (< 1 hora)
+        # Filtros agressivos para tokens - score mínimo bem baixo para MÁXIMAS oportunidades
+        self.min_score_aggressive = 5  # Score mínimo EXTREMAMENTE baixo para maximizar oportunidades
+        self.memecoin_bonus = 10  # Bonus para memecoins
+        self.new_token_bonus = 15  # Bonus para tokens novos (< 1 hora)
         
-        # Timing agressivo
-        self.hold_time_min = 30  # Mínimo 30 segundos
-        self.hold_time_max = 300  # Máximo 5 minutos (muito rápido)
-        self.quick_exit_time = 60  # Saída rápida em 1 minuto se lucro >= 10%
+        # Timing agressivo - lucros rápidos
+        self.hold_time_min = 15  # Mínimo 15 segundos
+        self.hold_time_max = 180  # Máximo 3 minutos (muito rápido)
+        self.quick_exit_time = 30  # Saída rápida em 30 segundos se lucro >= 8%
         
         # Configurações de risco
         self.max_simultaneous_positions = 8  # Máximo 8 posições simultâneas para mais oportunidades
