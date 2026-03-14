@@ -651,7 +651,7 @@ class DEXHandler:
                     {"constant": True, "inputs": [{"name": "_owner", "type": "address"}, {"name": "_spender", "type": "address"}], "name": "allowance", "outputs": [{"name": "", "type": "uint256"}], "type": "function"}
                 ]
                 
-                weth_contract = self.web3.eth.contract(address=WETH_ADDRESS, abi=weth_abi)
+                weth_contract = web3_instance.eth.contract(address=WETH_ADDRESS, abi=weth_abi)
                 
                 # Verificar allowance atual
                 current_allowance = weth_contract.functions.allowance(WALLET_ADDRESS, router_address).call()
@@ -659,16 +659,19 @@ class DEXHandler:
                 if current_allowance < amount_in:
                     # Aprovar WETH para o router
                     # Usar gas mais conservador para saldos baixos
-                    eth_balance = self.web3.eth.get_balance(WALLET_ADDRESS)
-                    eth_balance_eth = float(self.web3.from_wei(eth_balance, 'ether'))
+                    eth_balance = web3_instance.eth.get_balance(WALLET_ADDRESS)
+                    eth_balance_eth = float(web3_instance.from_wei(eth_balance, 'ether'))
                     
                     # Ajustar gas baseado no saldo disponível
                     if eth_balance_eth < 0.0001:  # Saldo muito baixo
                         gas_limit = 50000
-                        gas_price = self.web3.to_wei(1, 'gwei')  # Gas price muito baixo
+                        gas_price = web3_instance.to_wei(0.001, 'gwei')  # Gas price mínimo
                     else:
                         gas_limit = 100000
-                        gas_price = self.web3.to_wei(MAX_GAS_PRICE, 'gwei')
+                        gas_price = web3_instance.to_wei(MAX_GAS_PRICE, 'gwei')
+                    
+                    # Usar nonce correto
+                    nonce = web3_instance.eth.get_transaction_count(WALLET_ADDRESS)
                     
                     approve_tx = weth_contract.functions.approve(
                         router_address, 
@@ -677,18 +680,21 @@ class DEXHandler:
                         'from': WALLET_ADDRESS,
                         'gas': gas_limit,
                         'gasPrice': gas_price,
-                        'nonce': self.web3.eth.get_transaction_count(WALLET_ADDRESS)
+                        'nonce': nonce
                     })
                     
                     # Assinar e enviar aprovação
-                    signed_approve = self.web3.eth.account.sign_transaction(approve_tx, PRIVATE_KEY)
-                    approve_hash = self.web3.eth.send_raw_transaction(signed_approve.rawTransaction)
+                    signed_approve = web3_instance.eth.account.sign_transaction(approve_tx, PRIVATE_KEY)
+                    approve_hash = web3_instance.eth.send_raw_transaction(signed_approve.rawTransaction)
                     print(f"🔓 Aprovação WETH enviada: {approve_hash.hex()}")
                     
                     # Aguardar confirmação da aprovação
-                    time.sleep(3)
+                    time.sleep(2)
                 
                 # Agora fazer o swap usando swapExactTokensForTokens
+                # Usar nonce correto
+                nonce = web3_instance.eth.get_transaction_count(WALLET_ADDRESS)
+                
                 transaction = router_contract.functions.swapExactTokensForTokens(
                     amount_in,
                     amount_out_min,
@@ -697,9 +703,9 @@ class DEXHandler:
                     deadline
                 ).build_transaction({
                     'from': WALLET_ADDRESS,
-                    'gas': gas_limit * 2,  # Usar o mesmo gas ajustado
-                    'gasPrice': gas_price,
-                    'nonce': self.web3.eth.get_transaction_count(WALLET_ADDRESS)
+                    'gas': 300000,  # Gas maior para swaps
+                    'gasPrice': web3_instance.to_wei(0.01, 'gwei'),  # Gas mais alto para prioridade
+                    'nonce': nonce
                 })
             else:
                 # Vender token por WETH
@@ -753,21 +759,24 @@ class DEXHandler:
             for attempt in range(max_retries):
                 try:
                     # Atualizar nonce para cada tentativa
-                    transaction['nonce'] = self.web3.eth.get_transaction_count(WALLET_ADDRESS)
+                    nonce = web3_instance.eth.get_transaction_count(WALLET_ADDRESS)
+                    transaction['nonce'] = nonce
                     
-                    signed_txn = self.web3.eth.account.sign_transaction(transaction, PRIVATE_KEY)
-                    tx_hash = self.web3.eth.send_raw_transaction(signed_txn.rawTransaction)
+                    print(f"📝 Nonce: {nonce}, Gas: {transaction.get('gas', 'default')}, GasPrice: {web3_instance.from_wei(transaction.get('gasPrice', 0), 'gwei')} gwei")
+                    
+                    signed_txn = web3_instance.eth.account.sign_transaction(transaction, PRIVATE_KEY)
+                    tx_hash = web3_instance.eth.send_raw_transaction(signed_txn.rawTransaction)
                     
                     print(f"🚀 Transação enviada: {tx_hash.hex()}")
                     
                     # Aguardar confirmação básica
                     try:
-                        receipt = self.web3.eth.wait_for_transaction_receipt(tx_hash, timeout=30)
+                        receipt = web3_instance.eth.wait_for_transaction_receipt(tx_hash, timeout=30)
                         if receipt.status == 1:
                             print(f"✅ Transação confirmada com sucesso!")
                             return tx_hash.hex()
                         else:
-                            print(f"❌ Transação falhou na blockchain")
+                            print(f"❌ Transação falhou na blockchain - Status: {receipt.status}")
                             return None
                     except Exception as wait_error:
                         print(f"⚠️ Timeout aguardando confirmação: {wait_error}")
@@ -781,7 +790,8 @@ class DEXHandler:
                         await asyncio.sleep(2)
                         # Aumentar gas price para próxima tentativa
                         if 'gasPrice' in transaction:
-                            transaction['gasPrice'] = int(transaction['gasPrice'] * 1.2)
+                            transaction['gasPrice'] = int(transaction['gasPrice'] * 1.3)
+                            print(f"🔄 Tentando com gas {transaction['gasPrice']}...")
                     else:
                         print(f"❌ Todas as tentativas falharam")
                         return None
