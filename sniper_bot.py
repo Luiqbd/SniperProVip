@@ -61,11 +61,11 @@ class SniperBot:
         else:
             self.logger = logging.getLogger(__name__)
         
-        # Inicializar Telegram Bot SIMPLES (sem conflitos)
+        # Inicializar Telegram Bot Avançado (com botões funcionando)
         try:
-            from simple_telegram import simple_telegram
-            self.telegram_bot = simple_telegram
-            print("📱 Usando Telegram SIMPLES (sem conflitos)")
+            from simple_telegram import get_advanced_telegram
+            self.telegram_bot = get_advanced_telegram(self)  # Passa self para ter acesso ao sniper
+            print("📱 Usando Telegram Avançado com botões funcionando")
         except Exception as e:
             self.logger.warning(f"Telegram bot não disponível: {e}")
             # Criar um mock do telegram bot para evitar erros
@@ -80,8 +80,14 @@ class SniperBot:
             async def send_trade_alert(self, token_address, token_name, action, details=None):
                 print(f"🚨 Trade Alert [{action}]: {token_name} ({token_address[:10]}...)")
             
+            async def send_status_update(self, status_data):
+                print(f"📊 Status: {status_data}")
+            
             async def start(self):
                 print("📱 Telegram Mock: Funcionando sem Telegram")
+            
+            def set_sniper_bot(self, bot):
+                pass
         
         return TelegramMock()
         
