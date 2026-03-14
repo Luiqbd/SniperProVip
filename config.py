@@ -57,11 +57,11 @@ ENABLE_BASESWAP = os.getenv('ENABLE_BASESWAP', 'true').lower() == 'true'
 ENABLE_SUSHISWAP = os.getenv('ENABLE_SUSHISWAP', 'true').lower() == 'true'
 
 # Security Settings - Otimizado para memecoins com crescimento rápido
-ENABLE_MEV_PROTECTION = os.getenv('ENABLE_MEV_PROTECTION', 'true').lower() == 'true'
-MIN_LIQUIDITY_USD = float(os.getenv('MIN_LIQUIDITY_USD', '1500'))  # Mais agressivo para memecoins (reduzido para mais oportunidades)
-MAX_TRADE_IMPACT = float(os.getenv('MAX_TRADE_IMPACT', '10'))  # Mais flexível para oportunidades
-MIN_SCORE_TO_BUY = int(os.getenv('MIN_SCORE_TO_BUY', '30'))  # Score reduzido para mais trades (crescimento rápido)
-ENABLE_HONEYPOT_CHECK = os.getenv('ENABLE_HONEYPOT_CHECK', 'true').lower() == 'true'
+ENABLE_MEV_PROTECTION = os.getenv('ENABLE_MEV_PROTECTION', 'false').lower() == 'true'  # Desabilitado para transações mais rápidas
+MIN_LIQUIDITY_USD = float(os.getenv('MIN_LIQUIDITY_USD', '500'))  # Reduzido para mais oportunidades
+MAX_TRADE_IMPACT = float(os.getenv('MAX_TRADE_IMPACT', '20'))  # Mais flexível para oportunidades
+MIN_SCORE_TO_BUY = int(os.getenv('MIN_SCORE_TO_BUY', '15'))  # Score muito reduzido para mais trades
+ENABLE_HONEYPOT_CHECK = os.getenv('ENABLE_HONEYPOT_CHECK', 'false').lower() == 'true'  # Desabilitado para speed
 RISK_TOLERANCE = os.getenv('RISK_TOLERANCE', 'high').lower()  # high, medium, low
 
 # Trading Mode - MODO REAL HABILITADO

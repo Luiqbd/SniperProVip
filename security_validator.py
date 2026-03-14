@@ -42,41 +42,44 @@ class SecurityValidator:
                 warnings.append("Token pode não seguir padrão ERC20 completo")
                 security_score -= 15  # Reduzido de 30 para 15
             
-            # 3. Verificar honeypot
-            is_honeypot = self._check_honeypot(token_address)
-            if is_honeypot:
-                issues.append("Token identificado como honeypot")
-                security_score -= 80
+            # 3. Verificar honeypot APENAS se habilitado
+            is_honeypot = False  # Desabilitado por padrão para mais oportunidades
+            if ENABLE_HONEYPOT_CHECK:
+                is_honeypot = self._check_honeypot(token_address)
+                if is_honeypot:
+                    issues.append("Token identificado como honeypot")
+                    security_score -= 80
             
-            # 4. Verificar ownership e renúncia
+            # 4. Verificar ownership e renúncia (aviso apenas, não bloqueia)
             ownership_info = self._check_ownership(token_address)
             if ownership_info['has_owner'] and not ownership_info['renounced']:
                 warnings.append("Contrato ainda tem owner ativo")
-                security_score -= 20
+                security_score -= 5  # Reduzido significativamente
             
-            # 5. Verificar funções perigosas
+            # 5. Verificar funções perigosas (aviso apenas)
             dangerous_functions = self._check_dangerous_functions(token_address)
             if dangerous_functions:
                 warnings.append(f"Funções perigosas encontradas: {', '.join(dangerous_functions)}")
-                security_score -= 20  # Reduzido de 40 para 20
+                security_score -= 5  # Reduzido significativamente
             
-            # 6. Verificar liquidez
+            # 6. Verificar liquidez (aviso apenas)
             liquidity_info = self._check_liquidity_security(token_address)
             if liquidity_info['locked_percentage'] < 50:
                 warnings.append(f"Apenas {liquidity_info['locked_percentage']}% da liquidez está bloqueada")
-                security_score -= 15
+                security_score -= 5  # Reduzido significativamente
             
-            # 7. Verificar distribuição de holders
+            # 7. Verificar distribuição de holders (aviso apenas)
             holder_distribution = self._check_holder_distribution(token_address)
             if holder_distribution['top_10_percentage'] > 80:
                 warnings.append("Concentração alta nos top 10 holders")
-                security_score -= 25
+                security_score -= 5  # Reduzido significativamente
             
+            # MUDANÇA CRÍTICA: aceite tokens mesmo com warnings, apenas bloqueie se for honeypot
             return {
                 'score': max(0, security_score),
                 'issues': issues,
                 'warnings': warnings,
-                'is_safe': security_score >= 40 and not issues,  # Menos restritivo
+                'is_safe': not is_honeypot,  # Apenas bloqueia se for honeypot confirmado
                 'details': {
                     'erc20_compliant': erc20_valid,
                     'is_honeypot': is_honeypot,
