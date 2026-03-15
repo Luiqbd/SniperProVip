@@ -12,6 +12,7 @@ import os
 import threading
 import time
 from typing import Dict, Optional, Callable
+from concurrent.futures import ThreadPoolExecutor
 from config import *
 
 class UltimateTelegramBot:
@@ -803,11 +804,18 @@ Aumenta automaticamente o valor do trade quando o saldo cresce.
             return
         
         self.running = True
-        print("🔄 Starting polling loop...")
+        self.executor = ThreadPoolExecutor(max_workers=4)
+        
+        def run_async(coro_func, *args):
+            """Executa uma coroutine em thread separada"""
+            try:
+                asyncio.run(coro_func(*args))
+            except Exception as e:
+                print(f"❌ Error in async task: {e}")
         
         def poll_loop():
             offset = None
-            print("🔄 Polling loop started")
+            last_log = 0
             
             while self.running:
                 try:
@@ -815,7 +823,11 @@ Aumenta automaticamente o valor do trade quando o saldo cresce.
                     if offset:
                         params["offset"] = offset
                     
-                    print("📡 Polling Telegram...")
+                    # Only log periodically
+                    if time.time() - last_log > 60:
+                        print("📡 Polling Telegram...")
+                        last_log = time.time()
+                    
                     response = requests.get(
                         f"https://api.telegram.org/bot{self.token}/getUpdates",
                         params=params,
@@ -842,22 +854,14 @@ Aumenta automaticamente o valor do trade quando o saldo cresce.
                         
                         # Callback Query (botões inline)
                         if "callback_query" in update:
-                            print(f"🔘 Callback received")
                             cb = update["callback_query"]
                             callback_id = cb.get("id")
                             user_id = cb.get("from", {}).get("id")
                             message_id = cb.get("message", {}).get("message_id")
                             callback_data = cb.get("data", "")
                             
-                            print(f"🔘 Processing callback: {callback_data} from user {user_id}")
-                            
-                            # Run in separate thread to avoid blocking
-                            def run_callback():
-                                try:
-                                    asyncio.run(self.handle_callback(callback_data, callback_id, user_id, message_id))
-                                except Exception as cb_err:
-                                    print(f"❌ Callback error: {cb_err}")
-                            threading.Thread(target=run_callback, daemon=True).start()
+                            print(f"🔘 Processing: {callback_data}")
+                            self.executor.submit(run_async, self.handle_callback, callback_data, callback_id, user_id, message_id)
                         
                         # Mensagem/Comando
                         elif "message" in update:
@@ -866,26 +870,17 @@ Aumenta automaticamente o valor do trade quando o saldo cresce.
                             user_id = msg.get("from", {}).get("id")
                             
                             if text:
-                                print(f"💬 Message: {text} from {user_id}")
-                                
-                                # Run in separate thread to avoid blocking
-                                def run_message():
-                                    try:
-                                        asyncio.run(self.handle_message(text, user_id))
-                                    except Exception as msg_err:
-                                        print(f"❌ Message error: {msg_err}")
-                                threading.Thread(target=run_message, daemon=True).start()
+                                print(f"💬 Message: {text}")
+                                self.executor.submit(run_async, self.handle_message, text, user_id)
                     
                     # Reset offset if no updates to avoid stuck
                     if not updates:
                         offset = None
                 
                 except requests.exceptions.Timeout:
-                    print("⏱️ Polling timeout, retrying...")
+                    pass  # Silent timeout
                 except Exception as e:
                     print(f"⚠️ Polling error: {e}")
-                    import traceback
-                    traceback.print_exc()
                     time.sleep(3)
         
         thread = threading.Thread(target=poll_loop, daemon=True)
@@ -895,6 +890,7 @@ Aumenta automaticamente o valor do trade quando o saldo cresce.
     def stop_polling(self):
         """⏹️ Para polling"""
         self.running = False
+        # Note: executor will be cleaned up when the thread ends
     
     # ==================== COMPATIBILIDADE ====================
     
