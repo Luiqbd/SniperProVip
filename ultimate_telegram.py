@@ -799,6 +799,7 @@ Aumenta automaticamente o valor do trade quando o saldo cresce.
             return
         
         self.running = True
+        print("🔄 Starting polling loop...")
         
         def poll_loop():
             offset = None
@@ -808,6 +809,7 @@ Aumenta automaticamente o valor do trade quando o saldo cresce.
                     if offset:
                         params["offset"] = offset
                     
+                    print("📡 Polling Telegram...")
                     response = requests.get(
                         f"https://api.telegram.org/bot{self.token}/getUpdates",
                         params=params,
@@ -817,16 +819,23 @@ Aumenta automaticamente o valor do trade quando o saldo cresce.
                     if response.status_code == 200:
                         data = response.json()
                         if data.get("ok"):
-                            for update in data.get("result", []):
+                            updates = data.get("result", [])
+                            if updates:
+                                print(f"📬 Received {len(updates)} updates")
+                            
+                            for update in updates:
                                 offset = update.get("update_id", 0) + 1
                                 
                                 # Callback Query (botões inline)
                                 if "callback_query" in update:
+                                    print(f"🔘 Callback received: {update}")
                                     cb = update["callback_query"]
                                     callback_id = cb.get("id")
                                     user_id = cb.get("from", {}).get("id")
                                     message_id = cb.get("message", {}).get("message_id")
                                     callback_data = cb.get("data", "")
+                                    
+                                    print(f"🔘 Processing callback: {callback_data} from user {user_id}")
                                     
                                     asyncio.run(self.handle_callback(callback_data, callback_id, user_id, message_id))
                                 
@@ -837,6 +846,7 @@ Aumenta automaticamente o valor do trade quando o saldo cresce.
                                     user_id = msg.get("from", {}).get("id")
                                     
                                     if text:
+                                        print(f"💬 Message: {text} from {user_id}")
                                         asyncio.run(self.handle_message(text, user_id))
                     
                 except Exception as e:
