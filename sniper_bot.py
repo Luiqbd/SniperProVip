@@ -174,6 +174,22 @@ class SniperBot:
             weth_balance = self._get_weth_balance_sync()
             print(f"{Fore.YELLOW}💰 Saldo WETH: {weth_balance:.6f} WETH{Style.RESET_ALL}")
             
+            # ============================================
+            # AUTOMATICAMENTE CONVERTER ETH PARA WETH SE NECESSÁRIO
+            # ============================================
+            if weth_balance < TRADE_AMOUNT_WETH and balance_eth > 0.003:
+                print(f"{Fore.CYAN}🔄 Convertendo ETH para WETH...{Style.RESET_ALL}")
+                try:
+                    # Usar dex_handler para fazer o wrap
+                    if self.dex_handler:
+                        result = await self.dex_handler.wrap_eth_to_weth()
+                        if result:
+                            # Atualizar saldo WETH após conversão
+                            weth_balance = self._get_weth_balance_sync()
+                            print(f"{Fore.GREEN}✅ WETH atualizado: {weth_balance:.6f}{Style.RESET_ALL}")
+                except Exception as wrap_error:
+                    print(f"{Fore.RED}❌ Erro ao converter ETH para WETH: {wrap_error}{Style.RESET_ALL}")
+            
             # Log de saldos
             print(f"💰 Saldos verificados:")
             print(f"⛽ ETH (Gas): {balance_eth:.6f}")

@@ -1027,3 +1027,105 @@ class DEXHandler:
             print(f"⚠️ Não foi possível estimar gas: {e}")
             # Retornar valor padrão
             return DEFAULT_GAS_LIMIT
+
+    # ============================================
+    # FUNÇÃO PARA CONVERTER ETH PARA WETH
+    # ============================================
+    
+    async def wrap_eth_to_weth(self, amount_eth: float = None) -> bool:
+        """
+        Converte ETH para WETH (wrapped ETH)
+        Isso é necessário porque trades na Uniswap usam WETH
+        """
+        try:
+            web3 = self._get_web3_instance()
+            
+            # Obter saldo atual de ETH
+            eth_balance = web3.eth.get_balance(WALLET_ADDRESS)
+            eth_balance_eth = float(web3.from_wei(eth_balance, 'ether'))
+            
+            # Se não especificar amount, usar todo ETH menos gas
+            if amount_eth is None:
+                # Deixar 0.003 ETH para gas e converter o resto
+                gas_reserve = 0.003
+                amount_eth = max(0, eth_balance_eth - gas_reserve)
+            
+            if amount_eth <= 0:
+                print("⚠️ ETH insuficiente para converter para WETH")
+                return False
+            
+            # Converter para Wei
+            amount_wei = web3.to_wei(amount_eth, 'ether')
+            
+            # Obter saldo WETH atual
+            weth_contract = web3.eth.contract(
+                address=WETH_ADDRESS,
+                abi=self._get_weth_abi()
+            )
+            weth_balance_before = weth_contract.functions.balanceOf(WALLET_ADDRESS).call()
+            
+            # Construir transação
+            nonce = web3.eth.get_transaction_count(WALLET_ADDRESS)
+            gas_price = web3.eth.gas_price
+            
+            tx = {
+                'from': WALLET_ADDRESS,
+                'to': WETH_ADDRESS,
+                'value': amount_wei,
+                'gas': 100000,
+                'gasPrice': gas_price,
+                'nonce': nonce,
+                'chainId': 8453
+            }
+            
+            # Assinar transação
+            private_key = os.getenv('PRIVATE_KEY')
+            signed_tx = web3.eth.account.sign_transaction(tx, private_key)
+            
+            # Enviar transação
+            tx_hash = web3.eth.send_raw_transaction(signed_tx.raw_transaction)
+            tx_hash_hex = web3.to_hex(tx_hash)
+            
+            print(f"📤 Transação de wrap ETH enviada: {tx_hash_hex}")
+            print(f"   Convertendo {amount_eth} ETH para WETH...")
+            
+            # Aguidar confirmação
+            receipt = web3.eth.wait_for_transaction_receipt(tx_hash, timeout=120)
+            
+            if receipt['status'] == 1:
+                weth_balance_after = weth_contract.functions.balanceOf(WALLET_ADDRESS).call()
+                weth_received = float(web3.from_wei(weth_balance_after - weth_balance_before, 'ether'))
+                print(f"✅ Sucesso! Convertido {weth_received:.6f} WETH")
+                return True
+            else:
+                print("❌ Transação falhou!")
+                return False
+                
+        except Exception as e:
+            print(f"❌ Erro ao converter ETH para WETH: {e}")
+            return False
+    
+    def _get_weth_abi(self):
+        """Retorna ABI do contrato WETH"""
+        return [
+            {
+                "constant": True,
+                "inputs": [{"name": "_owner", "type": "address"}],
+                "name": "balanceOf",
+                "outputs": [{"name": "balance", "type": "uint256"}],
+                "type": "function"
+            },
+            {
+                "name": "deposit",
+                "type": "function",
+                "inputs": [],
+                "outputs": [],
+                "stateMutability": "payable"
+            },
+            {
+                "name": "withdraw",
+                "type": "function",
+                "inputs": [{"name": "wad", "type": "uint256"}],
+                "outputs": []
+            }
+        ]
