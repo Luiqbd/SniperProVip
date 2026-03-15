@@ -21,7 +21,17 @@ class DEXHandler:
         self._init_backup_rpc()
     
     def _init_backup_rpc(self):
-        """Inicializa RPC backup"""
+        """Inicializa múltiplos RPCs para failover"""
+        from config import BASE_RPC_BACKUP, BASE_RPC_3, BASE_RPC_4
+        
+        rpcs = [
+            ('principal', BASE_RPC_URL),
+            ('backup', BASE_RPC_BACKUP),
+            ('rpc3', BASE_RPC_3),
+            ('rpc4', BASE_RPC_4)
+        ]
+        
+        # Manter apenas o primeiro (principal) como web3 principal
         try:
             self.backup_web3 = Web3(Web3.HTTPProvider(BASE_RPC_BACKUP))
             if self.backup_web3.is_connected():
@@ -32,6 +42,10 @@ class DEXHandler:
         except Exception as e:
             print(f"{Fore.YELLOW}⚠️ Erro ao conectar RPC backup: {str(e)}{Style.RESET_ALL}")
             self.backup_web3 = None
+        
+        # Armazenar lista de RPCs alternativos
+        self.rpc_list = [BASE_RPC_BACKUP, BASE_RPC_3, BASE_RPC_4]
+        self.current_rpc_index = 0
     
     def _get_web3_instance(self):
         """Retorna instância Web3 disponível (principal ou backup)"""
@@ -41,6 +55,16 @@ class DEXHandler:
             print(f"{Fore.YELLOW}🔄 Usando RPC backup{Style.RESET_ALL}")
             return self.backup_web3
         else:
+            # Tentar outros RPCs
+            for rpc in self.rpc_list:
+                try:
+                    temp_web3 = Web3(Web3.HTTPProvider(rpc))
+                    if temp_web3.is_connected():
+                        print(f"{Fore.YELLOW}🔄 Usando RPC alternativo: {rpc[:30]}...{Style.RESET_ALL}")
+                        self.backup_web3 = temp_web3
+                        return temp_web3
+                except:
+                    continue
             return self.web3  # Fallback para principal mesmo se não conectado
     
     def _get_cached_balance(self, cache_key: str):
@@ -166,11 +190,11 @@ class DEXHandler:
         
         # Verificar cache primeiro
         cached_balance = self._get_cached_balance(cache_key)
-        if cached_balance is not None:
+        if cached_balance is not None and cached_balance > 0:
             return cached_balance
         
         # Tentar obter saldo com rate limiting
-        for attempt in range(2):  # Máximo 2 tentativas
+        for attempt in range(3):  # Máximo 3 tentativas (aumentado)
             try:
                 await BASE_RPC_LIMITER.acquire()
                 
@@ -199,15 +223,25 @@ class DEXHandler:
             except Exception as e:
                 if "429" in str(e) or "Too Many Requests" in str(e):
                     BASE_RPC_LIMITER.handle_429_error()
-                    if attempt == 0:
-                        print(f"⚠️ Rate limit - tentativa {attempt + 1}/2")
-                        await asyncio.sleep(2)  # Esperar 2 segundos antes de tentar novamente
+                    if attempt < 2:
+                        print(f"⚠️ Rate limit - tentativa {attempt + 1}/3")
+                        await asyncio.sleep(3)  # Esperar 3 segundos antes de tentar novamente
                         continue
                 
                 print(f"❌ Erro ao obter saldo WETH: {e}")
-                if attempt == 1:  # Última tentativa
+                if attempt == 2:  # Última tentativa
+                    # Retornar valor do cache mesmo que expirou, é melhor que 0
+                    cached = self._get_cached_balance(cache_key)
+                    if cached is not None:
+                        print(f"⚠️ Usando saldo em cache: {cached:.6f} WETH")
+                        return cached
                     return 0.0
                     
+        # Se tudo falhar, tentar usar cache
+        cached = self._get_cached_balance(cache_key)
+        if cached is not None:
+            print(f"⚠️ Usando saldo em cache após falhas: {cached:.6f} WETH")
+            return cached
         return 0.0
     
     async def convert_weth_to_eth_if_needed(self, min_eth_needed: float = 0.00001) -> bool:
@@ -715,7 +749,7 @@ class DEXHandler:
                     {"constant": True, "inputs": [{"name": "_owner", "type": "address"}, {"name": "_spender", "type": "address"}], "name": "allowance", "outputs": [{"name": "", "type": "uint256"}], "type": "function"}
                 ]
                 
-                token_contract = self.web3.eth.contract(address=token_address, abi=token_abi)
+                token_contract = web3_instance.eth.contract(address=token_address, abi=token_abi)
                 
                 # Verificar allowance atual
                 current_allowance = token_contract.functions.allowance(WALLET_ADDRESS, router_address).call()
@@ -728,13 +762,13 @@ class DEXHandler:
                     ).build_transaction({
                         'from': WALLET_ADDRESS,
                         'gas': 100000,
-                        'gasPrice': self.web3.to_wei(MAX_GAS_PRICE, 'gwei'),
-                        'nonce': self.web3.eth.get_transaction_count(WALLET_ADDRESS)
+                        'gasPrice': web3_instance.to_wei(MAX_GAS_PRICE, 'gwei'),
+                        'nonce': web3_instance.eth.get_transaction_count(WALLET_ADDRESS)
                     })
                     
                     # Assinar e enviar aprovação
-                    signed_approve = self.web3.eth.account.sign_transaction(approve_tx, PRIVATE_KEY)
-                    approve_hash = self.web3.eth.send_raw_transaction(signed_approve.rawTransaction)
+                    signed_approve = web3_instance.eth.account.sign_transaction(approve_tx, PRIVATE_KEY)
+                    approve_hash = web3_instance.eth.send_raw_transaction(signed_approve.rawTransaction)
                     print(f"🔓 Aprovação token enviada: {approve_hash.hex()}")
                     
                     # Aguardar confirmação da aprovação
@@ -750,8 +784,8 @@ class DEXHandler:
                 ).build_transaction({
                     'from': WALLET_ADDRESS,
                     'gas': DEFAULT_GAS_LIMIT,
-                    'gasPrice': self.web3.to_wei(MAX_GAS_PRICE, 'gwei'),
-                    'nonce': self.web3.eth.get_transaction_count(WALLET_ADDRESS)
+                    'gasPrice': web3_instance.to_wei(MAX_GAS_PRICE, 'gwei'),
+                    'nonce': web3_instance.eth.get_transaction_count(WALLET_ADDRESS)
                 })
             
             # Assinar e enviar transação com retry logic

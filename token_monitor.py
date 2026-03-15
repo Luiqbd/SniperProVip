@@ -34,8 +34,8 @@ class TokenMonitor:
             print(f"🗑️ Token removido do monitoramento: {token_address}")
     
     async def monitor_new_tokens(self):
-        """Monitora TODOS os novos tokens sendo criados - MODO AGRESSIVO"""
-        print("🚀 Iniciando monitoramento AGRESSIVO de TODOS os tokens...")
+        """Monitora TODOS os novos tokens sendo criados - MODO AGRESSIVO ULTRA RÁPIDO"""
+        print("🚀 Iniciando monitoramento ULTRA RÁPIDO de TODOS os tokens...")
         
         last_block = self.web3.eth.block_number
         consecutive_errors = 0
@@ -47,18 +47,18 @@ class TokenMonitor:
                 
                 if current_block > last_block:
                     # Escanear múltiplos blocos de uma vez para não perder nada
-                    blocks_to_scan = min(current_block - last_block, 10)  # Máximo 10 blocos por vez
+                    blocks_to_scan = min(current_block - last_block, 20)  # Máximo 20 blocos por vez
                     await self._scan_blocks_for_new_pairs(last_block + 1, current_block)
                     last_block = current_block
                     consecutive_errors = 0  # Reset erros após sucesso
                     scan_failures = 0
                 else:
                     # Se não há novos blocos, tentar método alternativo
-                    if scan_failures < 3:
+                    if scan_failures < 2:
                         await self._aggressive_token_detection()
                         scan_failures += 1
                 
-                await asyncio.sleep(2)  # Verificar a cada 2 segundos
+                await asyncio.sleep(1)  # Verificar a cada 1 segundo (mais rápido)
                 
             except Exception as e:
                 consecutive_errors += 1
@@ -74,7 +74,7 @@ class TokenMonitor:
                     except:
                         pass
                 
-                await asyncio.sleep(10)  # Esperar mais tempo em caso de erro
+                await asyncio.sleep(5)  # Esperar mais tempo em caso de erro
     
     async def _aggressive_token_detection(self):
         """Detecção agressiva de tokens - método alternativo"""
