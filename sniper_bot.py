@@ -62,13 +62,17 @@ class SniperBot:
             self.logger = logging.getLogger(__name__)
         
         # Inicializar Telegram Bot Ultimate (com botões inline funcionando)
+        self.telegram_bot = None
         try:
             from ultimate_telegram import get_ultimate_telegram
             self.telegram_bot = get_ultimate_telegram(self)
-            print("📱🤖 Telegram ULTIMATE com botões inline funcionando!")
+            print("📱🤖 Telegram ULTIMATE inicializado!")
+            print(f"📱🤖 Token configurado: {'Sim' if self.telegram_bot.token else 'Não'}")
+            print(f"📱🤖 Usuários autorizados: {len(self.telegram_bot.authorized_users)}")
         except Exception as e:
-            self.logger.warning(f"Telegram bot não disponível: {e}")
-            # Criar um mock do telegram bot para evitar erros
+            print(f"❌ Erro ao carregar Telegram Ultimate: {e}")
+            import traceback
+            traceback.print_exc()
             self.telegram_bot = self._create_telegram_mock()
     
     def _create_telegram_mock(self):
