@@ -724,6 +724,10 @@ class DEXHandler:
                     
                     # Aguardar confirmação da aprovação
                     time.sleep(2)
+                else:
+                    # Usar valores padrão quando já aprovado
+                    gas_limit = 100000
+                    gas_price = web3_instance.to_wei(MAX_GAS_PRICE, 'gwei')
                 
                 # Agora fazer o swap usando swapExactTokensForTokens
                 # Usar nonce correto

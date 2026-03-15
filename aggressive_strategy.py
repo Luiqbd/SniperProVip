@@ -362,8 +362,8 @@ class AggressiveStrategy:
                 # Obter valor recebido em WETH
                 try:
                     received_wei = best_price
-                    received_eth = self.sniper_bot.web3.from_wei(received_wei, 'ether') if received_wei else 0
-                    profit_loss = (received_eth - position['buy_amount']) / position['buy_amount']
+                    received_eth = float(self.sniper_bot.web3.from_wei(received_wei, 'ether')) if received_wei else 0
+                    profit_loss = (float(received_eth) - float(position['buy_amount'])) / float(position['buy_amount'])
                 except:
                     profit_loss = 0  # Se não conseguir calcular, assumir zero
             else:
@@ -396,7 +396,7 @@ class AggressiveStrategy:
                 print(f"❌ Trade com perda: {profit_loss*100:.1f}% ({self.consecutive_losses} perdas consecutivas)")
             
             # Atualizar saldo
-            self.current_balance += position['buy_amount'] * profit_loss
+            self.current_balance += float(position['buy_amount']) * float(profit_loss)
             self.profit_history.append(profit_loss)
             
             # Remover posição
