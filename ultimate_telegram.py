@@ -279,11 +279,13 @@ Use os botões abaixo ou comandos:
     
     async def handle_callback(self, callback_data: str, callback_id: str, user_id: int, message_id: int = None):
         """📲 Processa todos os callbacks"""
+        print(f"🔘 handle_callback: data={callback_data}, user_id={user_id}, auth_users={self.authorized_users}")
         
         # Primeiro, responder ao callback para remover o "loading"
         self.answer_callback_sync(callback_id, text="✅ Processando...")
         
         if user_id not in self.authorized_users:
+            print(f"❌ Usuário {user_id} não autorizado!")
             self.answer_callback_sync(callback_id, text="❌ Acesso negado!", show_alert=True)
             return
         
@@ -748,8 +750,10 @@ Aumenta automaticamente o valor do trade quando o saldo cresce.
     
     async def handle_message(self, text: str, user_id: int):
         """💬 Processa mensagens/commands"""
+        print(f"💬 handle_message: text={text}, user_id={user_id}")
         
         if user_id not in self.authorized_users:
+            print(f"❌ Usuário {user_id} não autorizado!")
             self.send_message_sync("❌ <b>Acesso negado!</b>", user_id=user_id)
             return
         
