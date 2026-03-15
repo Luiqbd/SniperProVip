@@ -61,11 +61,11 @@ class SniperBot:
         else:
             self.logger = logging.getLogger(__name__)
         
-        # Inicializar Telegram Bot Avançado (com botões funcionando)
+        # Inicializar Telegram Bot Ultimate (com botões inline funcionando)
         try:
-            from simple_telegram import get_advanced_telegram
-            self.telegram_bot = get_advanced_telegram(self)  # Passa self para ter acesso ao sniper
-            print("📱 Usando Telegram Avançado com botões funcionando")
+            from ultimate_telegram import get_ultimate_telegram
+            self.telegram_bot = get_ultimate_telegram(self)
+            print("📱🤖 Telegram ULTIMATE com botões inline funcionando!")
         except Exception as e:
             self.logger.warning(f"Telegram bot não disponível: {e}")
             # Criar um mock do telegram bot para evitar erros
