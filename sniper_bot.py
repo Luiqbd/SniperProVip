@@ -128,7 +128,7 @@ class SniperBot:
             
             # Inicializar handlers
             self.dex_handler = DEXHandler(self.web3)
-            self.token_monitor = TokenMonitor(self.web3, self._process_new_token)
+            self.token_monitor = TokenMonitor(self.web3, self._process_new_token, self.dex_handler)
             self.security_validator = SecurityValidator(self.web3)
             
             # Inicializar estratégia agressiva
