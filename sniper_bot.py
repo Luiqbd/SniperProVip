@@ -189,8 +189,7 @@ class SniperBot:
                 try:
                     # Usar dex_handler para fazer o wrap (síncrono)
                     if self.dex_handler:
-                        import asyncio
-                        result = asyncio.run(self.dex_handler.wrap_eth_to_weth())
+                        result = self.dex_handler.wrap_eth_to_weth()
                         if result:
                             # Atualizar saldo WETH após conversão
                             weth_balance = self._get_weth_balance_sync()

@@ -1032,7 +1032,7 @@ class DEXHandler:
     # FUNÇÃO PARA CONVERTER ETH PARA WETH
     # ============================================
     
-    async def wrap_eth_to_weth(self, amount_eth: float = None) -> bool:
+    def wrap_eth_to_weth(self, amount_eth: float = None) -> bool:
         """
         Converte ETH para WETH (wrapped ETH)
         Isso é necessário porque trades na Uniswap usam WETH
