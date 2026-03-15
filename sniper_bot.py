@@ -180,9 +180,10 @@ class SniperBot:
             if weth_balance < TRADE_AMOUNT_WETH and balance_eth > 0.003:
                 print(f"{Fore.CYAN}🔄 Convertendo ETH para WETH...{Style.RESET_ALL}")
                 try:
-                    # Usar dex_handler para fazer o wrap
+                    # Usar dex_handler para fazer o wrap (síncrono)
                     if self.dex_handler:
-                        result = await self.dex_handler.wrap_eth_to_weth()
+                        import asyncio
+                        result = asyncio.run(self.dex_handler.wrap_eth_to_weth())
                         if result:
                             # Atualizar saldo WETH após conversão
                             weth_balance = self._get_weth_balance_sync()
