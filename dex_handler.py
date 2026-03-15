@@ -676,6 +676,10 @@ class DEXHandler:
                 # Para tokens muito novos, usar valor mínimo muito baixo
                 amount_out_min = 1  # Aceitar qualquer quantidade de tokens
             
+            # SEMPRE usar gas price BAIXO e fixo para evitar problemas de saldo
+            gas_price = web3_instance.to_wei(0.001, 'gwei')  # Gas fixo e baixo
+            print(f"⛽ Gas price: 0.001 gwei (fixo)")
+            
             # Preparar transação
             if is_buy:
                 # Comprar token com WETH (não ETH direto)
@@ -692,17 +696,9 @@ class DEXHandler:
                 
                 if current_allowance < amount_in:
                     # Aprovar WETH para o router
-                    # Usar gas mais conservador para saldos baixos
-                    eth_balance = web3_instance.eth.get_balance(WALLET_ADDRESS)
-                    eth_balance_eth = float(web3_instance.from_wei(eth_balance, 'ether'))
-                    
-                    # Ajustar gas baseado no saldo disponível
-                    if eth_balance_eth < 0.0001:  # Saldo muito baixo
-                        gas_limit = 50000
-                        gas_price = web3_instance.to_wei(0.001, 'gwei')  # Gas price mínimo
-                    else:
-                        gas_limit = 100000
-                        gas_price = web3_instance.to_wei(MAX_GAS_PRICE, 'gwei')
+                    # SEMPRE usar gas baixo
+                    gas_limit = 50000
+                    gas_price = web3_instance.to_wei(0.001, 'gwei')  # SEMPRE mínimo
                     
                     # Usar nonce correto
                     nonce = web3_instance.eth.get_transaction_count(WALLET_ADDRESS)
@@ -725,13 +721,16 @@ class DEXHandler:
                     # Aguardar confirmação da aprovação
                     time.sleep(2)
                 else:
-                    # Usar valores padrão quando já aprovado
-                    gas_limit = 100000
-                    gas_price = web3_instance.to_wei(MAX_GAS_PRICE, 'gwei')
+                    # SEMPRE usar gas baixo
+                    gas_limit = 50000
+                    gas_price = web3_instance.to_wei(0.001, 'gwei')
                 
                 # Agora fazer o swap usando swapExactTokensForTokens
                 # Usar nonce correto
                 nonce = web3_instance.eth.get_transaction_count(WALLET_ADDRESS)
+                
+                # SEMPRE gas baixo
+                gas_price = web3_instance.to_wei(0.001, 'gwei')
                 
                 transaction = router_contract.functions.swapExactTokensForTokens(
                     amount_in,
@@ -741,8 +740,8 @@ class DEXHandler:
                     deadline
                 ).build_transaction({
                     'from': WALLET_ADDRESS,
-                    'gas': 300000,  # Gas maior para swaps
-                    'gasPrice': web3_instance.to_wei(0.01, 'gwei'),  # Gas mais alto para prioridade
+                    'gas': 150000,  # Reduzido para Base
+                    'gasPrice': web3_instance.to_wei(0.001, 'gwei'),  # SEMPRE baixo
                     'nonce': nonce
                 })
             else:
@@ -766,7 +765,7 @@ class DEXHandler:
                     ).build_transaction({
                         'from': WALLET_ADDRESS,
                         'gas': 100000,
-                        'gasPrice': web3_instance.to_wei(MAX_GAS_PRICE, 'gwei'),
+                        'gasPrice': web3_instance.to_wei(0.001, 'gwei'),  # SEMPRE baixo
                         'nonce': web3_instance.eth.get_transaction_count(WALLET_ADDRESS)
                     })
                     
@@ -788,7 +787,7 @@ class DEXHandler:
                 ).build_transaction({
                     'from': WALLET_ADDRESS,
                     'gas': DEFAULT_GAS_LIMIT,
-                    'gasPrice': web3_instance.to_wei(MAX_GAS_PRICE, 'gwei'),
+                    'gasPrice': web3_instance.to_wei(0.001, 'gwei'),  # SEMPRE baixo
                     'nonce': web3_instance.eth.get_transaction_count(WALLET_ADDRESS)
                 })
             
@@ -826,10 +825,6 @@ class DEXHandler:
                     if attempt < max_retries - 1:
                         # Aguardar antes da próxima tentativa
                         await asyncio.sleep(2)
-                        # Aumentar gas price para próxima tentativa
-                        if 'gasPrice' in transaction:
-                            transaction['gasPrice'] = int(transaction['gasPrice'] * 1.3)
-                            print(f"🔄 Tentando com gas {transaction['gasPrice']}...")
                     else:
                         print(f"❌ Todas as tentativas falharam")
                         return None
@@ -949,7 +944,7 @@ class DEXHandler:
             ).build_transaction({
                 'from': WALLET_ADDRESS,
                 'gas': 100000,
-                'gasPrice': self.web3.to_wei(MAX_GAS_PRICE, 'gwei'),
+                'gasPrice': self.web3.to_wei(0.001, 'gwei'),  # SEMPRE baixo
                 'nonce': self.web3.eth.get_transaction_count(WALLET_ADDRESS)
             })
             
