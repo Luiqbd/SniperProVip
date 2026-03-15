@@ -808,6 +808,7 @@ Aumenta automaticamente o valor do trade quando o saldo cresce.
         def poll_loop():
             offset = None
             print("🔄 Polling loop started")
+            
             while self.running:
                 try:
                     params = {"timeout": 25}
@@ -841,7 +842,7 @@ Aumenta automaticamente o valor do trade quando o saldo cresce.
                         
                         # Callback Query (botões inline)
                         if "callback_query" in update:
-                            print(f"🔘 Callback received: {update}")
+                            print(f"🔘 Callback received")
                             cb = update["callback_query"]
                             callback_id = cb.get("id")
                             user_id = cb.get("from", {}).get("id")
@@ -850,10 +851,13 @@ Aumenta automaticamente o valor do trade quando o saldo cresce.
                             
                             print(f"🔘 Processing callback: {callback_data} from user {user_id}")
                             
-                            try:
-                                asyncio.run(self.handle_callback(callback_data, callback_id, user_id, message_id))
-                            except Exception as cb_err:
-                                print(f"❌ Callback error: {cb_err}")
+                            # Run in separate thread to avoid blocking
+                            def run_callback():
+                                try:
+                                    asyncio.run(self.handle_callback(callback_data, callback_id, user_id, message_id))
+                                except Exception as cb_err:
+                                    print(f"❌ Callback error: {cb_err}")
+                            threading.Thread(target=run_callback, daemon=True).start()
                         
                         # Mensagem/Comando
                         elif "message" in update:
@@ -863,10 +867,14 @@ Aumenta automaticamente o valor do trade quando o saldo cresce.
                             
                             if text:
                                 print(f"💬 Message: {text} from {user_id}")
-                                try:
-                                    asyncio.run(self.handle_message(text, user_id))
-                                except Exception as msg_err:
-                                    print(f"❌ Message error: {msg_err}")
+                                
+                                # Run in separate thread to avoid blocking
+                                def run_message():
+                                    try:
+                                        asyncio.run(self.handle_message(text, user_id))
+                                    except Exception as msg_err:
+                                        print(f"❌ Message error: {msg_err}")
+                                threading.Thread(target=run_message, daemon=True).start()
                     
                     # Reset offset if no updates to avoid stuck
                     if not updates:
