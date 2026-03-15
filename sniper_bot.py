@@ -60,20 +60,43 @@ class SniperBot:
             self.logger = logging.getLogger(__name__)
         else:
             self.logger = logging.getLogger(__name__)
+
+        # ============================================
+        # INICIALIZAR TELEGRAM BOT ULTIMATE
+        # ============================================
+        print("=" * 50)
+        print("🔍 INICIANDO TELEGRAM BOT...")
+        print("=" * 50)
         
-        # Inicializar Telegram Bot Ultimate (com botões inline funcionando)
         self.telegram_bot = None
         try:
+            print("📥 Importando ultimate_telegram...")
             from ultimate_telegram import get_ultimate_telegram
+            print("📥 Chamando get_ultimate_telegram...")
             self.telegram_bot = get_ultimate_telegram(self)
-            print("📱🤖 Telegram ULTIMATE inicializado!")
-            print(f"📱🤖 Token configurado: {'Sim' if self.telegram_bot.token else 'Não'}")
-            print(f"📱🤖 Usuários autorizados: {len(self.telegram_bot.authorized_users)}")
+            
+            if self.telegram_bot:
+                print(f"✅ Telegram bot criado: {type(self.telegram_bot)}")
+                print(f"   Token: {'*' * 10}{self.telegram_bot.token[-10:] if self.telegram_bot.token else 'NENHUM'}")
+                print(f"   Users: {len(self.telegram_bot.authorized_users)}")
+                print(f"   Enabled: {self.telegram_bot.enabled}")
+                
+                if self.telegram_bot.enabled:
+                    print("🚀 Iniciando polling do Telegram...")
+                    self.telegram_bot.start_polling()
+                    print("✅ Polling iniciado!")
+                else:
+                    print("⚠️ Telegram desabilitado (faltando token/chat_id)")
+            else:
+                print("❌ Telegram bot é None!")
         except Exception as e:
-            print(f"❌ Erro ao carregar Telegram Ultimate: {e}")
+            print(f"❌ ERRO AO CARREGAR TELEGRAM: {e}")
             import traceback
             traceback.print_exc()
-            self.telegram_bot = self._create_telegram_mock()
+        
+        print("=" * 50)
+        print("✅ TELEGRAM BOT CONFIGURADO")
+        print("=" * 50)
     
     def _create_telegram_mock(self):
         """Cria um mock do telegram bot para funcionar sem Telegram"""
