@@ -899,9 +899,31 @@ Aumenta automaticamente o valor do trade quando o saldo cresce.
     
     async def start(self):
         """▶️ Inicia o bot"""
+        # Iniciar polling em background
         self.start_polling()
-        for user_id in self.authorized_users:
-            await self.send_menu(user_id)
+        
+        # Enviar mensagem inicial para todos os usuários
+        import asyncio
+        try:
+            for user_id in self.authorized_users:
+                await self.send_welcome_message(user_id)
+        except Exception as e:
+            print(f"Erro ao enviar mensagem inicial: {e}")
+    
+    async def send_welcome_message(self, user_id: int):
+        """Envia mensagem de boas-vindas"""
+        text = """
+🎯 <b>SNIPER PRO VIP - ONLINE!</b>
+
+✅ <i>O bot está funcionando!</i>
+
+<b>Rede:</b> Base Network 🔵
+<b>Status:</b> Monitorando...
+
+<i>Use /start para ver o menu</i>
+"""
+        keyboard = self.get_main_keyboard()
+        await self.send_message(text, reply_markup=keyboard, user_id=user_id)
     
     async def cleanup_and_disable_polling(self):
         """🧹 Limpa e para"""
