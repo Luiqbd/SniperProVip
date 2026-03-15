@@ -68,6 +68,13 @@ class SniperBot:
         print("🔍 INICIANDO TELEGRAM BOT...")
         print("=" * 50)
         
+        # Verificar variáveis de ambiente
+        import os
+        tg_token = os.getenv('TELEGRAM_BOT_TOKEN')
+        tg_chat = os.getenv('TELEGRAM_CHAT_ID')
+        print(f"📋 TELEGRAM_BOT_TOKEN: {'CONFIGURADO' if tg_token else 'NÃO CONFIGURADO'}")
+        print(f"📋 TELEGRAM_CHAT_ID: {'CONFIGURADO' if tg_chat else 'NÃO CONFIGURADO'}")
+        
         self.telegram_bot = None
         try:
             print("📥 Importando ultimate_telegram...")
