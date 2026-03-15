@@ -376,7 +376,7 @@ class DEXHandler:
             withdraw_tx = weth_contract.functions.withdraw(withdraw_amount).build_transaction({
                 'from': WALLET_ADDRESS,
                 'gas': 25000,  # Gas MÍNIMO
-                'gasPrice': web3_instance.to_wei(0.05, 'gwei'),  # Gas price ULTRA baixo
+                'gasPrice': web3_instance.to_wei(0.001, 'gwei'),  # SEMPRE baixo
                 'nonce': web3_instance.eth.get_transaction_count(WALLET_ADDRESS)
             })
             
@@ -428,7 +428,7 @@ class DEXHandler:
                 ).build_transaction({
                     'from': WALLET_ADDRESS,
                     'gas': 200000,
-                    'gasPrice': web3_instance.to_wei(0.1, 'gwei'),  # Gas ultra baixo
+                'gasPrice': web3_instance.to_wei(0.001, 'gwei'),  # SEMPRE baixo
                     'nonce': web3_instance.eth.get_transaction_count(WALLET_ADDRESS)
                 })
             else:
@@ -445,7 +445,7 @@ class DEXHandler:
                 ).build_transaction({
                     'from': WALLET_ADDRESS,
                     'gas': 200000,
-                    'gasPrice': web3_instance.to_wei(0.1, 'gwei'),
+                'gasPrice': web3_instance.to_wei(0.001, 'gwei'),  # SEMPRE baixo
                     'nonce': web3_instance.eth.get_transaction_count(WALLET_ADDRESS)
                 })
             
@@ -1061,13 +1061,14 @@ class DEXHandler:
             
             # Construir transação
             nonce = web3.eth.get_transaction_count(WALLET_ADDRESS)
-            gas_price = web3.eth.gas_price
+            # SEMPRE usar gas price baixo e fixo
+            gas_price = web3.to_wei(0.001, 'gwei')
             
             tx = {
                 'from': WALLET_ADDRESS,
                 'to': WETH_ADDRESS,
                 'value': amount_wei,
-                'gas': 100000,
+                'gas': 85000,  # Reduzido para Base
                 'gasPrice': gas_price,
                 'nonce': nonce,
                 'chainId': 8453
