@@ -803,6 +803,7 @@ Aumenta automaticamente o valor do trade quando o saldo cresce.
         
         def poll_loop():
             offset = None
+            print("🔄 Polling loop started")
             while self.running:
                 try:
                     params = {"timeout": 25}
@@ -816,41 +817,63 @@ Aumenta automaticamente o valor do trade quando o saldo cresce.
                         timeout=30
                     )
                     
-                    if response.status_code == 200:
-                        data = response.json()
-                        if data.get("ok"):
-                            updates = data.get("result", [])
-                            if updates:
-                                print(f"📬 Received {len(updates)} updates")
-                            
-                            for update in updates:
-                                offset = update.get("update_id", 0) + 1
-                                
-                                # Callback Query (botões inline)
-                                if "callback_query" in update:
-                                    print(f"🔘 Callback received: {update}")
-                                    cb = update["callback_query"]
-                                    callback_id = cb.get("id")
-                                    user_id = cb.get("from", {}).get("id")
-                                    message_id = cb.get("message", {}).get("message_id")
-                                    callback_data = cb.get("data", "")
-                                    
-                                    print(f"🔘 Processing callback: {callback_data} from user {user_id}")
-                                    
-                                    asyncio.run(self.handle_callback(callback_data, callback_id, user_id, message_id))
-                                
-                                # Mensagem/Comando
-                                elif "message" in update:
-                                    msg = update["message"]
-                                    text = msg.get("text", "")
-                                    user_id = msg.get("from", {}).get("id")
-                                    
-                                    if text:
-                                        print(f"💬 Message: {text} from {user_id}")
-                                        asyncio.run(self.handle_message(text, user_id))
+                    if response.status_code != 200:
+                        print(f"⚠️ Telegram API error: {response.status_code}")
+                        time.sleep(5)
+                        continue
                     
+                    data = response.json()
+                    if not data.get("ok"):
+                        print(f"⚠️ Telegram error: {data.get('description')}")
+                        time.sleep(5)
+                        continue
+                    
+                    updates = data.get("result", [])
+                    if updates:
+                        print(f"📬 Received {len(updates)} updates")
+                    
+                    for update in updates:
+                        offset = update.get("update_id", 0) + 1
+                        
+                        # Callback Query (botões inline)
+                        if "callback_query" in update:
+                            print(f"🔘 Callback received: {update}")
+                            cb = update["callback_query"]
+                            callback_id = cb.get("id")
+                            user_id = cb.get("from", {}).get("id")
+                            message_id = cb.get("message", {}).get("message_id")
+                            callback_data = cb.get("data", "")
+                            
+                            print(f"🔘 Processing callback: {callback_data} from user {user_id}")
+                            
+                            try:
+                                asyncio.run(self.handle_callback(callback_data, callback_id, user_id, message_id))
+                            except Exception as cb_err:
+                                print(f"❌ Callback error: {cb_err}")
+                        
+                        # Mensagem/Comando
+                        elif "message" in update:
+                            msg = update["message"]
+                            text = msg.get("text", "")
+                            user_id = msg.get("from", {}).get("id")
+                            
+                            if text:
+                                print(f"💬 Message: {text} from {user_id}")
+                                try:
+                                    asyncio.run(self.handle_message(text, user_id))
+                                except Exception as msg_err:
+                                    print(f"❌ Message error: {msg_err}")
+                    
+                    # Reset offset if no updates to avoid stuck
+                    if not updates:
+                        offset = None
+                
+                except requests.exceptions.Timeout:
+                    print("⏱️ Polling timeout, retrying...")
                 except Exception as e:
                     print(f"⚠️ Polling error: {e}")
+                    import traceback
+                    traceback.print_exc()
                     time.sleep(3)
         
         thread = threading.Thread(target=poll_loop, daemon=True)
