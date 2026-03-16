@@ -595,11 +595,9 @@ class DEXHandler:
                 continue
         
         if successful_queries == 0:
-            print("⚠️ Nenhuma DEX retornou preço válido - assumindo token muito novo")
-            # Para tokens muito novos, assumir que terão liquidez em breve
-            # Retornar valores padrão para permitir tentativa de compra
-            print("🎯 MODO AGRESSIVO: Tentando compra mesmo sem preço confirmado")
-            return "uniswap_v3", amount_in, self.dexs['uniswap_v3']['router']
+            print("⚠️ Nenhuma DEX retornou preço válido - token sem liquidez")
+            print("⏭️ PULANDO token (sem liquidez para trading)")
+            return None, None, None  # Não tenta comprar token sem liquidez
             
         return best_dex, best_price, best_router
     

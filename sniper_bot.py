@@ -536,11 +536,14 @@ class SniperBot:
             )
             
             if not best_dex or best_price == 0:
-                print(f"{Fore.YELLOW}⚠️ Preço não confirmado - executando compra agressiva{Style.RESET_ALL}")
-                # Não cancelar mais - modo agressivo sempre tenta
-                if not best_dex:
-                    best_dex = "uniswap_v3"
-                    best_router = self.dex_handler.dexs['uniswap_v3']['router']
+                print(f"{Fore.RED}❌ Token sem liquidez - CANCELANDO COMPRA{Style.RESET_ALL}")
+                await self.telegram_bot.send_notification(
+                    f"❌ **Compra cancelada**\n"
+                    f"📛 {token_info['symbol']}\n"
+                    f"⚠️ Sem liquidez disponível",
+                    "high"
+                )
+                return None  # Cancelar compra
             
             print(f"{Fore.CYAN}🎯 Melhor preço encontrado na {best_dex}{Style.RESET_ALL}")
             
@@ -655,11 +658,9 @@ class SniperBot:
                 token_address, token_balance_wei, is_buy=False
             )
             
-            if not best_dex:
-                print(f"{Fore.YELLOW}⚠️ Preço não confirmado - executando venda agressiva{Style.RESET_ALL}")
-                # Não cancelar mais - modo agressivo sempre tenta
-                best_dex = "uniswap_v3"
-                best_router = self.dex_handler.dexs['uniswap_v3']['router']
+            if not best_dex or best_price == 0:
+                print(f"{Fore.RED}❌ Token sem liquidez para venda - CANCELANDO{Style.RESET_ALL}")
+                return None  # Cancelar venda
             
             await self.telegram_bot.send_notification(
                 f"🎯 **Executando venda!**\n"
