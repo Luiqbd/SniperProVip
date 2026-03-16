@@ -43,14 +43,16 @@ AUTO_SCALE_ENABLED = os.getenv('AUTO_SCALE_ENABLED', 'true').lower() == 'true'
 SCALE_UP_THRESHOLD = float(os.getenv('SCALE_UP_THRESHOLD', '0.002500'))  # Quando saldo chegar a 0.0025, aumentar trades
 SCALE_DOWN_THRESHOLD = float(os.getenv('SCALE_DOWN_THRESHOLD', '0.001500'))  # Se saldo cair para 0.0015, diminuir trades
 
-# Configurações de Trading Inteligente - MODO AGRESSIVO PARA CRESCIMENTO RÁPIDO
+# Configurações de Trading Inteligente - MODO ULTRA AGRESSIVO PARA LUCRO MÁXIMO
 MEMECOIN_MODE = os.getenv('MEMECOIN_MODE', 'true').lower() == 'true'  # Habilitado para memecoins
 ALL_TOKENS_MODE = os.getenv('ALL_TOKENS_MODE', 'true').lower() == 'true'  # Detectar TODOS os tokens
 MIN_TOKEN_AGE_MINUTES = int(os.getenv('MIN_TOKEN_AGE_MINUTES', '0'))  # Tokens brand new
 MAX_TOKEN_AGE_HOURS = int(os.getenv('MAX_TOKEN_AGE_HOURS', '72'))  # Expandido para mais oportunidades
-TARGET_PROFIT_PERCENTAGE = float(os.getenv('TARGET_PROFIT_PERCENTAGE', '15'))  # Lucro mais rápido (15%)
+TARGET_PROFIT_PERCENTAGE = float(os.getenv('TARGET_PROFIT_PERCENTAGE', '3'))  # Lucro de 3% já vende (mais rápido)
 AGGRESSIVE_TRADING = os.getenv('AGGRESSIVE_TRADING', 'true').lower() == 'true'  # Trading agressivo
 QUICK_PROFIT_MODE = os.getenv('QUICK_PROFIT_MODE', 'true').lower() == 'true'  # Lucros rápidos
+QUICK_EXIT_PERCENTAGE = float(os.getenv('QUICK_EXIT_PERCENTAGE', '2'))  # Saída rápida com 2%
+STOP_LOSS_PERCENTAGE = float(os.getenv('STOP_LOSS_PERCENTAGE', '30'))  # Stop loss 30%
 
 # DEX Configuration
 ENABLE_UNISWAP_V3 = os.getenv('ENABLE_UNISWAP_V3', 'true').lower() == 'true'
