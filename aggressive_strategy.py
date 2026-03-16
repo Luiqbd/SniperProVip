@@ -254,6 +254,11 @@ class AggressiveStrategy:
                     token_address, buy_amount_wei, is_buy=False
                 )
                 
+                # Verificar se tem liquidez antes de calcular lucro
+                if not current_value or current_value is None or current_value == 0:
+                    print(f"⚠️ Sem liquidez para {position['symbol']}, pulando verificação")
+                    return False
+                
                 if current_value > 0:
                     current_value_eth = float(self.sniper_bot.web3.from_wei(current_value, 'ether'))
                     current_profit = (float(current_value_eth) - float(position['buy_amount'])) / float(position['buy_amount'])
@@ -343,10 +348,17 @@ class AggressiveStrategy:
                 token_address, amount_in, is_buy=False
             )
             
-            if not best_router:
-                # Fallback para Uniswap V3
-                best_router = dex_handler.dexs.get('uniswap_v3', {}).get('router')
-                best_dex = "uniswap_v3"
+            # VERIFICAR LIQUIDEZ ANTES DE VENDER
+            if not best_router or best_price is None or best_price == 0:
+                print(f"⚠️ Token sem liquidez para venda - CANCELANDO")
+                await self.sniper_bot.telegram_bot.send_notification(
+                    f"❌ **Venda cancelada!**\n"
+                    f"📛 {position['symbol']}\n"
+                    f"⚠️ Sem liquidez para vender\n"
+                    f"💡 Tokens mantidos na carteira", 
+                    "high"
+                )
+                return
             
             print(f"🎯 Executando venda via {best_dex}...")
             
