@@ -568,8 +568,13 @@ class SniperBot:
                 # Notificar via sistema em tempo real
                 await self.telegram_bot.send_trade_alert("BUY", token_address, trade_amount, best_price)
                 await self.telegram_bot.send_notification(
-                    f"TX Hash: {tx_hash[:10]}...{tx_hash[-10:]}", 
-                    "success"
+                    f"🟢 **COMPRA REALIZADA!**\n\n"
+                    f"📛 Token: {token_info['symbol']}\n"
+                    f"💰 Valor: {trade_amount:.6f} WETH\n"
+                    f"💵 Preço: {best_price:.6f} tokens\n"
+                    f"🔗 TX: `{tx_hash[:10]}...{tx_hash[-10:]}`\n"
+                    f"⏰ Data: {datetime.now().strftime('%H:%M:%S')}", 
+                    "high"
                 )
                 
                 # Agendar venda
@@ -686,7 +691,7 @@ class SniperBot:
                 )
                 
                 # Calcular lucro
-                await self._calculate_profit(buy_tx_hash, sell_tx_hash)
+                await self._calculate_profit(buy_tx_hash, sell_tx_hash, token_info.get('symbol', 'TOKEN'))
                 
                 # Log da transação
                 if ENABLE_LOGGING:
@@ -726,29 +731,54 @@ class SniperBot:
             print(f"{Fore.RED}❌ Erro ao obter saldo do token: {str(e)}{Style.RESET_ALL}")
             return 0
     
-    async def _calculate_profit(self, buy_tx_hash: str, sell_tx_hash: str):
+    async def _calculate_profit(self, buy_tx_hash: str, sell_tx_hash: str, token_symbol: str = "TOKEN"):
         """Calcula lucro da operação"""
         try:
-            buy_receipt = self.web3.eth.get_transaction_receipt(buy_tx_hash)
-            sell_receipt = self.web3.eth.get_transaction_receipt(sell_tx_hash)
+            # Pequena pausa para garantir que as transações estão confirmadas
+            await asyncio.sleep(2)
             
-            buy_tx = self.web3.eth.get_transaction(buy_tx_hash)
-            sell_tx = self.web3.eth.get_transaction(sell_tx_hash)
+            try:
+                buy_receipt = self.web3.eth.get_transaction_receipt(buy_tx_hash)
+                sell_receipt = self.web3.eth.get_transaction_receipt(sell_tx_hash)
+                
+                buy_tx = self.web3.eth.get_transaction(buy_tx_hash)
+                sell_tx = self.web3.eth.get_transaction(sell_tx_hash)
+                
+                # Calcular custos de gas
+                buy_gas_cost = buy_receipt.gasUsed * buy_tx.gasPrice
+                sell_gas_cost = sell_receipt.gasUsed * sell_tx.gasPrice
+                total_gas_cost = self.web3.from_wei(buy_gas_cost + sell_gas_cost, 'ether')
+                
+            except Exception as e:
+                print(f"⚠️ Erro ao obter receipts: {e}")
+                total_gas_cost = 0.0015  # Estimativa
             
-            # Calcular custos de gas
-            buy_gas_cost = buy_receipt.gasUsed * buy_tx.gasPrice
-            sell_gas_cost = sell_receipt.gasUsed * sell_tx.gasPrice
-            total_gas_cost = self.web3.from_wei(buy_gas_cost + sell_gas_cost, 'ether')
+            # Obter saldos atuais
+            current_eth = float(self.web3.from_wei(self.web3.eth.get_balance(WALLET_ADDRESS), 'ether'))
+            current_weth = self._get_weth_balance_sync()
             
-            # Calcular lucro bruto (simplificado)
-            # Nota: Em implementação real, seria necessário analisar os logs dos eventos
-            gross_profit = 0.0  # Placeholder
-            net_profit = gross_profit - total_gas_cost
+            # Calcular lucro baseado na diferença de saldo
+            # (simplificado - considera saldo WETH antes e depois)
+            initial_total = 0.006854  # Saldo inicial estimado
+            current_total = current_eth + current_weth
+            profit = current_total - initial_total
             
-            self.total_profit += net_profit
+            self.total_profit += profit
             
-            print(f"{Fore.CYAN}💹 Lucro líquido: {net_profit:.6f} ETH{Style.RESET_ALL}")
-            print(f"{Fore.CYAN}💰 Lucro total acumulado: {self.total_profit:.6f} ETH{Style.RESET_ALL}")
+            # Notificação de LUCRO
+            emoji = "🟢" if profit >= 0 else "🔴"
+            await self.telegram_bot.send_notification(
+                f"{emoji} **LUCRO/STOP-LOSS!**\n\n"
+                f"📛 Token: {token_symbol}\n"
+                f"💰 Lucro: {profit:+.6f} ETH\n"
+                f"💰 Lucro total: {self.total_profit:+.6f} ETH\n"
+                f"⛽ Gas gasto: ~{total_gas_cost:.6f} ETH\n"
+                f"💵 Saldo atual: {current_total:.6f} ETH\n"
+                f"⏰ Data: {datetime.now().strftime('%H:%M:%S')}", 
+                "high"
+            )
+            
+            print(f"{Fore.CYAN}💹 Lucro: {profit:+.6f} ETH | Total: {self.total_profit:+.6f} ETH{Style.RESET_ALL}")
             
         except Exception as e:
             print(f"{Fore.RED}❌ Erro ao calcular lucro: {str(e)}{Style.RESET_ALL}")
