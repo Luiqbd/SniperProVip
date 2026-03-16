@@ -72,17 +72,20 @@ REAL_TRADING_ENABLED = os.getenv('REAL_TRADING_ENABLED', 'true').lower() == 'tru
 FAST_MODE = os.getenv('FAST_MODE', 'true').lower() == 'true'  # Modo rápido para oportunidades
 MEV_PROTECTION = os.getenv('MEV_PROTECTION', 'false').lower() == 'true'  # Desabilitado para velocidade
 
-# Performance Settings
-TRANSACTION_TIMEOUT = int(os.getenv('TRANSACTION_TIMEOUT', '20'))  # Timeout menor para transações
-CONFIRMATION_BLOCKS = int(os.getenv('CONFIRMATION_BLOCKS', '1'))  # Confirmações necessárias
-MAX_RETRIES = int(os.getenv('MAX_RETRIES', '5'))  # Mais tentativas
-SCAN_INTERVAL = float(os.getenv('SCAN_INTERVAL', '0.2'))  # Scan mais rápido (0.2s)
-PRIORITY_FEE = int(os.getenv('PRIORITY_FEE', '3'))  # Priority fee em Gwei
+# Performance Settings - OTIMIZADO PARA MAXIMIZAR LUCROS
+TRANSACTION_TIMEOUT = int(os.getenv('TRANSACTION_TIMEOUT', '10'))  # Timeout menor
+CONFIRMATION_BLOCKS = int(os.getenv('CONFIRMATION_BLOCKS', '0'))  # Sem esperar confirmações
+MAX_RETRIES = int(os.getenv('MAX_RETRIES', '3'))  # Menos tentativas
+SCAN_INTERVAL = float(os.getenv('SCAN_INTERVAL', '0.1'))  # Scan ultra rápido (0.1s)
+PRIORITY_FEE = int(os.getenv('PRIORITY_FEE', '0'))  # Sem priority fee
 
-# Security Thresholds
-MIN_LIQUIDITY_ETH = float(os.getenv('MIN_LIQUIDITY_ETH', '0.5'))  # Liquidez mínima em ETH
-MIN_HOLDERS = int(os.getenv('MIN_HOLDERS', '10'))  # Holders mínimos
-MIN_TOKEN_AGE = int(os.getenv('MIN_TOKEN_AGE', '0'))  # Idade mínima do token em segundos
+# Telegram - Não esperar resposta
+TELEGRAM_WAIT_RESPONSE = os.getenv('TELEGRAM_WAIT_RESPONSE', 'false').lower() == 'true'
+
+# Security Thresholds - OTIMIZADO PARA PEGAR MOEDAS NO INÍCIO
+MIN_LIQUIDITY_ETH = float(os.getenv('MIN_LIQUIDITY_ETH', '0.05'))  # Reduzido para pegar mais tokens
+MIN_HOLDERS = int(os.getenv('MIN_HOLDERS', '3'))  # Reduzido para pegar tokens novos
+MIN_TOKEN_AGE = int(os.getenv('MIN_TOKEN_AGE', '0'))  # Qualquer idade
 PRIMARY_DEX = os.getenv('PRIMARY_DEX', 'Uniswap V3')  # DEX preferida
 
 # Monitoring
@@ -108,11 +111,11 @@ UNISWAP_V3_FACTORY = "0x33128a8fC17869897dcE68Ed026d694621f6FDfD"
 AERODROME_FACTORY = "0x420DD381b31aEf6683db6B902084cB0FFECe40Da"
 BASESWAP_FACTORY = "0xFDa619b6d20975be80A10332cD39b9a4b0FAa8BB"
 
-# Gas Configuration - OTIMIZADO PARA BASE NETWORK
-DEFAULT_GAS_LIMIT = 400000  # Aumentado para Base Network
-PRIORITY_GAS_LIMIT = 600000  # Aumentado para transações complexas
-APPROVAL_GAS_LIMIT = 100000  # Gas específico para aprovações
-SWAP_GAS_LIMIT = 350000     # Gas específico para swaps
+# Gas Configuration - OTIMIZADO PARA PEQUENOS SALDOS
+DEFAULT_GAS_LIMIT = 150000  # Reduzido paraBase
+PRIORITY_GAS_LIMIT = 200000  # Reduzido
+APPROVAL_GAS_LIMIT = 50000   # Reduzido
+SWAP_GAS_LIMIT = 150000     # Reduzido
 
 def validate_config():
     """Validate essential configuration"""
