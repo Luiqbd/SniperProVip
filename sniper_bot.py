@@ -576,7 +576,8 @@ class SniperBot:
                 token_address, amount_in, is_buy=True
             )
             
-            if not best_dex or best_price == 0:
+            # Só cancelar se best_dex for None (erro real)
+            if not best_dex:
                 print(f"{Fore.RED}❌ Token sem liquidez - CANCELANDO COMPRA{Style.RESET_ALL}")
                 await self.telegram_bot.send_notification(
                     f"❌ **Compra cancelada**\n"
@@ -585,6 +586,17 @@ class SniperBot:
                     "high"
                 )
                 return None  # Cancelar compra
+            
+            # Se best_price é 1, é modo arriscado
+            if best_price == 1:
+                print(f"{Fore.YELLOW}⚠️ MODO ARRISCADO: Comprando sem liquidez confirmada!{Style.RESET_ALL}")
+                await self.telegram_bot.send_notification(
+                    f"⚠️ **MODO ARRISCADO**\n"
+                    f"📛 {token_info['symbol']}\n"
+                    f"💡 Tentando comprar mesmo sem liquidez\n"
+                    f"⚠️ Risco: transação pode falhar",
+                    "high"
+                )
             
             print(f"{Fore.CYAN}🎯 Melhor preço encontrado na {best_dex}{Style.RESET_ALL}")
             

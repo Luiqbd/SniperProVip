@@ -589,9 +589,17 @@ class DEXHandler:
                     print(f"⚠️ {dex_info['name']}: Sem par de trading")
                 continue
         
+        # Se não encontrou liquidez, TENTAR COMPRAR MESMO ASSIM (modo arriscado para tokens novos)
         if successful_queries == 0:
-            print("❌ Nenhuma DEX tem liquidez para este token")
-            print("⏭️ PULANDO token (sem liquidez)")
+            print("⚠️ Nenhuma liquidez encontrada - TENTANDO MESMO ASSIM (modo arriscado)")
+            # Usar a primeira DEX disponível como fallback
+            first_dex = list(self.dexs.values())[0] if self.dexs else None
+            if first_dex:
+                print(f"⚠️ Tentando com {first_dex['name']} mesmo sem liquidez")
+                best_dex = first_dex['name']
+                best_router = first_dex['router']
+                best_price = 1  # Valor mínimo
+                return best_dex, best_price, best_router
             return None, None, None
             
         print(f"✅ Liquidez encontrada! Melhor: {best_dex}")
