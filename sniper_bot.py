@@ -14,6 +14,7 @@ from token_monitor import TokenMonitor
 from security_validator import SecurityValidator
 from aggressive_strategy import AggressiveStrategy
 from ai_optimizer import AIOptimizer
+from ai_predictor import AIPredictor
 
 # Inicializar colorama
 init(autoreset=True)
@@ -192,6 +193,10 @@ class SniperBot:
             self.ai_optimizer = AIOptimizer(self)
             print(f"{Fore.CYAN}🤖 IA Otimizador ativada - Ajustes automáticos{Style.RESET_ALL}")
             
+            # Inicializar IA Preditiva (para lucros grandes)
+            self.ai_predictor = AIPredictor()
+            print(f"{Fore.CYAN}🎯 IA Preditiva ativada - Foco em lucros grandes!{Style.RESET_ALL}")
+            
             # Verificar saldo ETH
             balance = self.web3.eth.get_balance(WALLET_ADDRESS)
             balance_eth = float(self.web3.from_wei(balance, 'ether'))
@@ -331,6 +336,13 @@ class SniperBot:
             # Análise IA do token
             ai_analysis = await self.analyze_token_with_ai(token_address, token_info)
             
+            # Análise da IA Preditiva (para lucros grandes)
+            if hasattr(self, 'ai_predictor'):
+                predictor_result = self.ai_predictor.analyze_token(token_info)
+                print(f"{Fore.MAGENTA}🎯 IA Preditiva: Score {predictor_result['score']}/100 - {predictor_result['prediction']}{Style.RESET_ALL}")
+                print(f"{Fore.MAGENTA}   Razão: {predictor_result['reason']}{Style.RESET_ALL}")
+                print(f"{Fore.MAGENTA}   Meta de lucro: {predictor_result['target_profit']*100:.0f}%{Style.RESET_ALL}")
+            
             # Análise tradicional como backup
             traditional_analysis = self.token_monitor.analyze_token_potential(token_address)
             
@@ -416,9 +428,10 @@ class SniperBot:
             )
     
     async def _execute_buy_order(self, token_address: str, token_info: Dict):
-        """Executa ordem de compra"""
+        """Executa ordem de compra - ULTRA RÁPIDO"""
         try:
-            print(f"{Fore.GREEN}💰 Executando compra de {token_info['symbol']}...{Style.RESET_ALL}")
+            print(f"{Fore.GREEN}⚡ EXECUTANDO COMPRA ULTRA RÁPIDA - {token_info['symbol']}...{Style.RESET_ALL}")
+            print(f"{Fore.CYAN}🎯 FOCO: LUCROS GRANDES!{Style.RESET_ALL}")
             
             # Usar valor dinâmico da estratégia + IA
             if self.aggressive_strategy:

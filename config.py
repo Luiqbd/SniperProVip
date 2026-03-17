@@ -48,11 +48,11 @@ MEMECOIN_MODE = os.getenv('MEMECOIN_MODE', 'true').lower() == 'true'  # Habilita
 ALL_TOKENS_MODE = os.getenv('ALL_TOKENS_MODE', 'true').lower() == 'true'  # Detectar TODOS os tokens
 MIN_TOKEN_AGE_MINUTES = int(os.getenv('MIN_TOKEN_AGE_MINUTES', '0'))  # Tokens brand new
 MAX_TOKEN_AGE_HOURS = int(os.getenv('MAX_TOKEN_AGE_HOURS', '72'))  # Expandido para mais oportunidades
-TARGET_PROFIT_PERCENTAGE = float(os.getenv('TARGET_PROFIT_PERCENTAGE', '3'))  # Lucro de 3% já vende (mais rápido)
+TARGET_PROFIT_PERCENTAGE = float(os.getenv('TARGET_PROFIT_PERCENTAGE', '10'))  # Lucro de 10% (AUMENTADO PARA LUCROS GRANDES!)
 AGGRESSIVE_TRADING = os.getenv('AGGRESSIVE_TRADING', 'true').lower() == 'true'  # Trading agressivo
 QUICK_PROFIT_MODE = os.getenv('QUICK_PROFIT_MODE', 'true').lower() == 'true'  # Lucros rápidos
-QUICK_EXIT_PERCENTAGE = float(os.getenv('QUICK_EXIT_PERCENTAGE', '2'))  # Saída rápida com 2%
-STOP_LOSS_PERCENTAGE = float(os.getenv('STOP_LOSS_PERCENTAGE', '30'))  # Stop loss 30%
+QUICK_EXIT_PERCENTAGE = float(os.getenv('QUICK_EXIT_PERCENTAGE', '5'))  # Saída rápida com 5% (AUMENTADO!)
+STOP_LOSS_PERCENTAGE = float(os.getenv('STOP_LOSS_PERCENTAGE', '20'))  # Stop loss 20% (mais apertado para evitar perdas grandes)
 
 # DEX Configuration
 ENABLE_UNISWAP_V3 = os.getenv('ENABLE_UNISWAP_V3', 'true').lower() == 'true'

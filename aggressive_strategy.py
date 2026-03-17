@@ -39,10 +39,15 @@ class AggressiveStrategy:
         self.memecoin_bonus = 10  # Bonus para memecoins
         self.new_token_bonus = 15  # Bonus para tokens novos (< 1 hora)
         
-        # Timing agressivo - lucros rápidos
+        # Timing agressivo - lucros GRANDES
         self.hold_time_min = 10  # Mínimo 10 segundos
-        self.hold_time_max = 120  # Máximo 2 minutos (muito rápido)
-        self.quick_exit_time = 20  # Saída rápida em 20 segundos se lucro >= 5%
+        self.hold_time_max = 180  # Máximo 3 minutos (para lucros grandes)
+        self.quick_exit_time = 30  # Saída rápida em 30 segundos se lucro >= 5%
+        
+        # Alvos de lucro - FOCO EM LUCROS GRANDES
+        self.take_profit = 0.10  # 10% lucro alvo
+        self.quick_profit_threshold = 0.05  # 5% quick exit
+        self.stop_loss = 0.20  # 20% stop loss
         
         # Configurações de risco
         self.max_simultaneous_positions = 10  # Máximo 10 posições simultâneas para mais oportunidades
