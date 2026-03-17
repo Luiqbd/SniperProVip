@@ -615,29 +615,50 @@ class SniperBot:
             )
             
             if tx_hash:
-                self.trades_executed += 1
-                print(f"{Fore.GREEN}✅ Compra executada! TX: {tx_hash}{Style.RESET_ALL}")
+                print(f"{Fore.GREEN}✅ Compra enviada! TX: {tx_hash}{Style.RESET_ALL}")
+                print(f"{Fore.YELLOW}⏳ Aguardando confirmação da blockchain...{Style.RESET_ALL}")
                 
-                # Notificar via sistema em tempo real
+                # Aguardar confirmação
+                await asyncio.sleep(10)
+                
+                # Verificar se a transação foi confirmada
                 try:
-                    await self.telegram_bot.send_trade_alert(
-                        tx_hash, token_info['symbol'], "BUY", {"amount": trade_amount, "price": best_price}
-                    )
-                    await self.telegram_bot.send_notification(
-                        f"🟢 **COMPRA REALIZADA!**\n\n"
-                        f"📛 Token: {token_info['symbol']}\n"
-                        f"💰 Valor: {trade_amount:.6f} WETH\n"
-                        f"💵 Preço: {best_price:.6f} tokens\n"
-                        f"🔗 TX: `{tx_hash[:10]}...{tx_hash[-10:]}`\n"
-                        f"⏰ Data: {datetime.now().strftime('%H:%M:%S')}", 
-                        "high"
-                    )
-                    print(f"📱 Notificação de compra enviada!")
+                    buy_receipt = self.web3.eth.get_transaction_receipt(tx_hash)
+                    if buy_receipt and buy_receipt.status == 1:
+                        self.trades_executed += 1
+                        print(f"{Fore.GREEN}✅ Compra CONFIRMADA! TX: {tx_hash}{Style.RESET_ALL}")
+                        
+                        # Notificar via sistema em tempo real
+                        try:
+                            await self.telegram_bot.send_trade_alert(
+                                tx_hash, token_info['symbol'], "BUY", {"amount": trade_amount, "price": best_price}
+                            )
+                            await self.telegram_bot.send_notification(
+                                f"🟢 **COMPRA CONFIRMADA!**\n\n"
+                                f"📛 Token: {token_info['symbol']}\n"
+                                f"💰 Valor: {trade_amount:.6f} WETH\n"
+                                f"🔗 TX: `{tx_hash[:10]}...{tx_hash[-10:]}`\n"
+                                f"⏰ Data: {datetime.now().strftime('%H:%M:%S')}", 
+                                "high"
+                            )
+                            print(f"📱 Notificação de compra enviada!")
+                        except Exception as e:
+                            print(f"⚠️ Erro ao enviar notificação: {e}")
+                        
+                        # Agendar venda
+                        asyncio.create_task(self._schedule_sell_order(token_address, token_info, tx_hash))
+                    else:
+                        print(f"{Fore.RED}❌ Compra FALHOU na blockchain (Status: {buy_receipt.status if buy_receipt else 'N/A'}){Style.RESET_ALL}")
+                        await self.telegram_bot.send_notification(
+                            f"❌ **Compra FALHOU!**\n\n"
+                            f"📛 Token: {token_info['symbol']}\n"
+                            f"🔗 TX: `{tx_hash[:10]}...{tx_hash[-10:]}`\n"
+                            f"⚠️ Transação revertida\n"
+                            f"⏰ Data: {datetime.now().strftime('%H:%M:%S')}", 
+                            "high"
+                        )
                 except Exception as e:
-                    print(f"⚠️ Erro ao enviar notificação: {e}")
-                
-                # Agendar venda
-                asyncio.create_task(self._schedule_sell_order(token_address, token_info, tx_hash))
+                    print(f"{Fore.RED}❌ Erro ao verificar transação: {e}{Style.RESET_ALL}")
                 
                 # Log da transação
                 if ENABLE_LOGGING:
