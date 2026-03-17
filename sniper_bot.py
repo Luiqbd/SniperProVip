@@ -762,28 +762,47 @@ class SniperBot:
             )
             
             if sell_tx_hash:
-                self.successful_trades += 1
-                print(f"{Fore.GREEN}✅ Venda executada! TX: {sell_tx_hash}{Style.RESET_ALL}")
+                print(f"{Fore.GREEN}✅ Venda enviada! TX: {sell_tx_hash}{Style.RESET_ALL}")
                 
-                # Notificar venda via Telegram
+                # Aguardar e verificar confirmação
+                await asyncio.sleep(10)
+                
                 try:
-                    await self.telegram_bot.send_trade_alert(
-                        sell_tx_hash, token_info['symbol'], "SELL", {"amount": token_balance, "price": best_price}
-                    )
-                    await self.telegram_bot.send_notification(
-                        f"🔴 **VENDA REALIZADA!**\n\n"
-                        f"📛 Token: {token_info['symbol']}\n"
-                        f"💰 Saldo: {token_balance:.6f} tokens\n"
-                        f"🔗 TX: `{sell_tx_hash[:10]}...{sell_tx_hash[-10:]}`\n"
-                        f"⏰ Data: {datetime.now().strftime('%H:%M:%S')}", 
-                        "high"
-                    )
-                    print(f"📱 Notificação de venda enviada!")
+                    sell_receipt = self.web3.eth.get_transaction_receipt(sell_tx_hash)
+                    if sell_receipt and sell_receipt.status == 1:
+                        self.successful_trades += 1
+                        print(f"{Fore.GREEN}✅ Venda CONFIRMADA! TX: {sell_tx_hash}{Style.RESET_ALL}")
+                        
+                        # Notificar venda via Telegram
+                        try:
+                            await self.telegram_bot.send_trade_alert(
+                                sell_tx_hash, token_info['symbol'], "SELL", {"amount": token_balance, "price": best_price}
+                            )
+                            await self.telegram_bot.send_notification(
+                                f"🔴 **VENDA CONFIRMADA!**\n\n"
+                                f"📛 Token: {token_info['symbol']}\n"
+                                f"💰 Saldo: {token_balance:.6f} tokens\n"
+                                f"🔗 TX: `{sell_tx_hash[:10]}...{sell_tx_hash[-10:]}`\n"
+                                f"⏰ Data: {datetime.now().strftime('%H:%M:%S')}", 
+                                "high"
+                            )
+                            print(f"📱 Notificação de venda enviada!")
+                        except Exception as e:
+                            print(f"⚠️ Erro ao enviar notificação de venda: {e}")
+                        
+                        # Calcular lucro
+                        await self._calculate_profit(buy_tx_hash, sell_tx_hash, token_info.get('symbol', 'TOKEN'))
+                    else:
+                        print(f"{Fore.RED}❌ Venda FALHOU na blockchain (Status: {sell_receipt.status if sell_receipt else 'N/A'}){Style.RESET_ALL}")
+                        await self.telegram_bot.send_notification(
+                            f"❌ **VENDA FALHOU!**\n\n"
+                            f"📛 Token: {token_info['symbol']}\n"
+                            f"🔗 TX: `{sell_tx_hash[:10]}...{sell_tx_hash[-10:]}`\n"
+                            f"⚠️ Transação revertida", 
+                            "high"
+                        )
                 except Exception as e:
-                    print(f"⚠️ Erro ao enviar notificação de venda: {e}")
-                
-                # Calcular lucro
-                await self._calculate_profit(buy_tx_hash, sell_tx_hash, token_info.get('symbol', 'TOKEN'))
+                    print(f"{Fore.RED}❌ Erro ao verificar venda: {e}{Style.RESET_ALL}")
                 
                 # Log da transação
                 if ENABLE_LOGGING:
