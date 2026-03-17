@@ -13,6 +13,7 @@ from dex_handler import DEXHandler
 from token_monitor import TokenMonitor
 from security_validator import SecurityValidator
 from aggressive_strategy import AggressiveStrategy
+from ai_optimizer import AIOptimizer
 
 # Inicializar colorama
 init(autoreset=True)
@@ -186,6 +187,10 @@ class SniperBot:
             # Reset posições antigas para começar limpo
             self.aggressive_strategy.reset_positions()
             print(f"{Fore.GREEN}🚀 Estratégia agressiva ativada para crescimento rápido{Style.RESET_ALL}")
+            
+            # Inicializar IA Otimizador
+            self.ai_optimizer = AIOptimizer(self)
+            print(f"{Fore.CYAN}🤖 IA Otimizador ativada - Ajustes automáticos{Style.RESET_ALL}")
             
             # Verificar saldo ETH
             balance = self.web3.eth.get_balance(WALLET_ADDRESS)
@@ -415,11 +420,18 @@ class SniperBot:
         try:
             print(f"{Fore.GREEN}💰 Executando compra de {token_info['symbol']}...{Style.RESET_ALL}")
             
-            # Usar valor dinâmico da estratégia agressiva
+            # Usar valor dinâmico da estratégia + IA
             if self.aggressive_strategy:
                 trade_amount = self.aggressive_strategy.calculate_dynamic_trade_amount()
             else:
                 trade_amount = self.current_trade_amount
+            
+            # IA também pode ajustar o valor
+            if hasattr(self, 'ai_optimizer'):
+                ai_amount = self.ai_optimizer.get_optimal_trade_amount()
+                if ai_amount < trade_amount:
+                    trade_amount = ai_amount
+                    print(f"🤖 IA ajustou valor para: {trade_amount:.6f} WETH")
             
             # Notificar início da compra
             await self.telegram_bot.send_notification(
@@ -827,6 +839,18 @@ class SniperBot:
         print(f"{Fore.YELLOW}✅ Trades bem-sucedidos: {self.successful_trades}{Style.RESET_ALL}")
         print(f"{Fore.YELLOW}💰 Lucro total: {self.total_profit:.6f} ETH{Style.RESET_ALL}")
         print(f"{Fore.YELLOW}⚙️ Valor por trade: {TRADE_AMOUNT_WETH} ETH{Style.RESET_ALL}")
+        
+        # Status da IA
+        if hasattr(self, 'ai_optimizer'):
+            ai_status = self.ai_optimizer.get_status()
+            print(f"{Fore.CYAN}{'='*50}")
+            print(f"🤖 IA OTIMIZADOR")
+            print(f"{'='*50}{Style.RESET_ALL}")
+            print(f"{Fore.YELLOW}🎯 Win Rate: {ai_status['win_rate']}{Style.RESET_ALL}")
+            print(f"{Fore.YELLOW}📊 Trades: {ai_status['trades']}{Style.RESET_ALL}")
+            print(f"{Fore.YELLOW}🔥 Sequência atual: {ai_status['current_streak']}{Style.RESET_ALL}")
+            print(f"{Fore.YELLOW}💵 Saldo IA: {ai_status['balance']}{Style.RESET_ALL}")
+            print(f"{Fore.YELLOW}📈 {ai_status['recommendation']}{Style.RESET_ALL}")
         
         if self.web3:
             # Mostrar saldo ETH (para gas)
