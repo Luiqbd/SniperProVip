@@ -76,6 +76,7 @@ class SniperBot:
         print(f"📋 TELEGRAM_CHAT_ID: {'CONFIGURADO' if tg_chat else 'NÃO CONFIGURADO'}")
         
         self.telegram_bot = None
+        telegram_enabled = False
         try:
             print("📥 Importando ultimate_telegram...")
             from ultimate_telegram import get_ultimate_telegram
@@ -88,10 +89,20 @@ class SniperBot:
                 print(f"   Users: {len(self.telegram_bot.authorized_users)}")
                 print(f"   Enabled: {self.telegram_bot.enabled}")
                 
+                telegram_enabled = self.telegram_bot.enabled
+                
                 if self.telegram_bot.enabled:
                     print("🚀 Iniciando polling do Telegram...")
                     self.telegram_bot.start_polling()
                     print("✅ Polling iniciado!")
+                    
+                    # Testar notificação
+                    try:
+                        print("📱 Enviando notificação de teste...")
+                        self.telegram_bot.send_message_sync("🎯 **SNIPER INICIADO!**\n\n✅ Bot está funcionando!\n💰 Pronto para operar.")
+                        print("✅ Notificação de teste enviada!")
+                    except Exception as test_err:
+                        print(f"⚠️ Erro no teste: {test_err}")
                 else:
                     print("⚠️ Telegram desabilitado (faltando token/chat_id)")
             else:
@@ -100,6 +111,11 @@ class SniperBot:
             print(f"❌ ERRO AO CARREGAR TELEGRAM: {e}")
             import traceback
             traceback.print_exc()
+        
+        # Se Telegram não está funcionando, usar mock com prints
+        if not telegram_enabled or not self.telegram_bot:
+            print("⚠️ Usando Telegram mock (com prints)")
+            self.telegram_bot = self._create_telegram_mock()
         
         print("=" * 50)
         print("✅ TELEGRAM BOT CONFIGURADO")
@@ -566,16 +582,22 @@ class SniperBot:
                 print(f"{Fore.GREEN}✅ Compra executada! TX: {tx_hash}{Style.RESET_ALL}")
                 
                 # Notificar via sistema em tempo real
-                await self.telegram_bot.send_trade_alert("BUY", token_address, trade_amount, best_price)
-                await self.telegram_bot.send_notification(
-                    f"🟢 **COMPRA REALIZADA!**\n\n"
-                    f"📛 Token: {token_info['symbol']}\n"
-                    f"💰 Valor: {trade_amount:.6f} WETH\n"
-                    f"💵 Preço: {best_price:.6f} tokens\n"
-                    f"🔗 TX: `{tx_hash[:10]}...{tx_hash[-10:]}`\n"
-                    f"⏰ Data: {datetime.now().strftime('%H:%M:%S')}", 
-                    "high"
-                )
+                try:
+                    await self.telegram_bot.send_trade_alert(
+                        tx_hash, token_info['symbol'], "BUY", {"amount": trade_amount, "price": best_price}
+                    )
+                    await self.telegram_bot.send_notification(
+                        f"🟢 **COMPRA REALIZADA!**\n\n"
+                        f"📛 Token: {token_info['symbol']}\n"
+                        f"💰 Valor: {trade_amount:.6f} WETH\n"
+                        f"💵 Preço: {best_price:.6f} tokens\n"
+                        f"🔗 TX: `{tx_hash[:10]}...{tx_hash[-10:]}`\n"
+                        f"⏰ Data: {datetime.now().strftime('%H:%M:%S')}", 
+                        "high"
+                    )
+                    print(f"📱 Notificação de compra enviada!")
+                except Exception as e:
+                    print(f"⚠️ Erro ao enviar notificação: {e}")
                 
                 # Agendar venda
                 asyncio.create_task(self._schedule_sell_order(token_address, token_info, tx_hash))
@@ -686,9 +708,21 @@ class SniperBot:
                 print(f"{Fore.GREEN}✅ Venda executada! TX: {sell_tx_hash}{Style.RESET_ALL}")
                 
                 # Notificar venda via Telegram
-                await self.telegram_bot.send_trade_notification(
-                    token_info['symbol'], "SELL", sell_tx_hash, token_balance, best_price
-                )
+                try:
+                    await self.telegram_bot.send_trade_alert(
+                        sell_tx_hash, token_info['symbol'], "SELL", {"amount": token_balance, "price": best_price}
+                    )
+                    await self.telegram_bot.send_notification(
+                        f"🔴 **VENDA REALIZADA!**\n\n"
+                        f"📛 Token: {token_info['symbol']}\n"
+                        f"💰 Saldo: {token_balance:.6f} tokens\n"
+                        f"🔗 TX: `{sell_tx_hash[:10]}...{sell_tx_hash[-10:]}`\n"
+                        f"⏰ Data: {datetime.now().strftime('%H:%M:%S')}", 
+                        "high"
+                    )
+                    print(f"📱 Notificação de venda enviada!")
+                except Exception as e:
+                    print(f"⚠️ Erro ao enviar notificação de venda: {e}")
                 
                 # Calcular lucro
                 await self._calculate_profit(buy_tx_hash, sell_tx_hash, token_info.get('symbol', 'TOKEN'))
