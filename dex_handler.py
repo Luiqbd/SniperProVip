@@ -784,11 +784,27 @@ class DEXHandler:
                 })
             
             # Assinar e enviar transação com retry logic
-            max_retries = 3
+            max_retries = 5
             for attempt in range(max_retries):
                 try:
+                    # Verificar rate limit e esperar se necessário
+                    error_msg = ""
+                    try:
+                        # Tentar obter nonce primeiro para verificar conexão
+                        nonce = web3_instance.eth.get_transaction_count(WALLET_ADDRESS)
+                    except Exception as conn_error:
+                        error_msg = str(conn_error)
+                        if "429" in error_msg or "Too Many Requests" in error_msg:
+                            print(f"🚫 Rate limit detectado, aguardando...")
+                            await asyncio.sleep(5)  # Esperar 5 segundos
+                            # Tentar com backup RPC
+                            if self.backup_web3:
+                                print(f"🔄 Tentando com RPC backup...")
+                                web3_instance = self.backup_web3
+                            continue
+                        raise
+                    
                     # Atualizar nonce para cada tentativa
-                    nonce = web3_instance.eth.get_transaction_count(WALLET_ADDRESS)
                     transaction['nonce'] = nonce
                     
                     print(f"📝 Nonce: {nonce}, Gas: {transaction.get('gas', 'default')}, GasPrice: {web3_instance.from_wei(transaction.get('gasPrice', 0), 'gwei')} gwei")
@@ -813,10 +829,23 @@ class DEXHandler:
                         return tx_hash.hex()
                     
                 except Exception as send_error:
-                    print(f"❌ Tentativa {attempt + 1}/{max_retries} falhou: {str(send_error)}")
+                    error_str = str(send_error)
+                    print(f"❌ Tentativa {attempt + 1}/{max_retries} falhou: {error_str[:80]}")
+                    
+                    # Tratar rate limit especificamente
+                    if "429" in error_str or "Too Many Requests" in error_str:
+                        print(f"🚫 Rate limit 429 - aguardando 10s...")
+                        await asyncio.sleep(10)
+                        
+                        # Tentar com RPC backup
+                        if self.backup_web3:
+                            print(f"🔄 Mudando para RPC backup...")
+                            web3_instance = self.backup_web3
+                        continue
+                    
                     if attempt < max_retries - 1:
                         # Aguardar antes da próxima tentativa
-                        await asyncio.sleep(2)
+                        await asyncio.sleep(3)
                     else:
                         print(f"❌ Todas as tentativas falharam")
                         return None
