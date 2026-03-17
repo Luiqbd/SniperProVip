@@ -527,23 +527,19 @@ class DEXHandler:
         best_router = None
         successful_queries = 0
         
-        # Tentar múltiplos paths para encontrar liquidez
-        paths_to_try = []
-        
+        # Tokens novos só têm par direto com WETH - focar nisso!
         if is_buy:
-            # Para compra: WETH -> Token
+            # Para compra: WETH -> Token (apenas path direto!)
             paths_to_try = [
                 [WETH_ADDRESS, token_address],  # Direto
-                [WETH_ADDRESS, USDC_ADDRESS, token_address],  # Via USDC
-                [WETH_ADDRESS, USDT_ADDRESS, token_address],  # Via USDT
             ]
         else:
-            # Para venda: Token -> WETH
+            # Para venda: Token -> WETH (apenas path direto!)
             paths_to_try = [
                 [token_address, WETH_ADDRESS],  # Direto
-                [token_address, USDC_ADDRESS, WETH_ADDRESS],  # Via USDC
-                [token_address, USDT_ADDRESS, WETH_ADDRESS],  # Via USDT
             ]
+        
+        print(f"🔍 Verificando liquidez para {token_address[:10]}... (compra={is_buy})")
         
         for dex_key, dex_info in self.dexs.items():
             try:
@@ -554,7 +550,7 @@ class DEXHandler:
                     abi=self.get_router_abi()
                 )
                 
-                # Tentar diferentes paths até encontrar liquidez
+                # Tentar apenas o path direto primeiro
                 for path in paths_to_try:
                     try:
                         amounts = router_contract.functions.getAmountsOut(amount_in, path).call()
@@ -577,28 +573,26 @@ class DEXHandler:
                         # Se este path falhou, tentar o próximo
                         continue
                 
-                # Se chegou aqui sem break, não encontrou liquidez em nenhum path
-                if successful_queries == 0 or best_dex != dex_info['name']:
-                    print(f"⚠️ {dex_info['name']}: Sem liquidez em nenhum path")
+                # Se chegou aqui sem break, não encontrou liquidez
+                if not best_dex or best_dex != dex_info['name']:
+                    print(f"⚠️ {dex_info['name']}: Sem liquidez")
                 
             except Exception as e:
                 error_msg = str(e)
                 if "429" in error_msg or "Too Many Requests" in error_msg:
                     BASE_RPC_LIMITER.handle_429_error()
                     print(f"🚫 Rate limit 429 detectado. Backoff: {BASE_RPC_LIMITER.current_backoff}s")
-                    print(f"⚠️ Rate limit em {dex_info['name']}, aguardando {BASE_RPC_LIMITER.current_backoff:.1f}s...")
-                    await asyncio.sleep(min(BASE_RPC_LIMITER.current_backoff, 3))  # Máximo 3s
+                    await asyncio.sleep(min(BASE_RPC_LIMITER.current_backoff, 3))
                 elif "execution reverted" in error_msg.lower():
-                    print(f"⚠️ {dex_info['name']}: Sem par de trading para este token")
-                else:
-                    print(f"⚠️ {dex_info['name']}: {error_msg[:50]}...")
+                    print(f"⚠️ {dex_info['name']}: Sem par de trading")
                 continue
         
         if successful_queries == 0:
-            print("⚠️ Nenhuma DEX retornou preço válido - token sem liquidez")
-            print("⏭️ PULANDO token (sem liquidez para trading)")
-            return None, None, None  # Não tenta comprar token sem liquidez
+            print("❌ Nenhuma DEX tem liquidez para este token")
+            print("⏭️ PULANDO token (sem liquidez)")
+            return None, None, None
             
+        print(f"✅ Liquidez encontrada! Melhor: {best_dex}")
         return best_dex, best_price, best_router
     
     async def execute_swap(self, token_address: str, amount_in: int, router_address: str, 
