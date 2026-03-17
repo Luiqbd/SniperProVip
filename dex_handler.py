@@ -67,11 +67,15 @@ class DEXHandler:
                     continue
             return self.web3  # Fallback para principal mesmo se não conectado
     
-    def _get_cached_balance(self, cache_key: str):
+    def _get_cached_balance(self, cache_key: str, force_refresh: bool = False):
         """Obtém saldo do cache se válido"""
+        if force_refresh:
+            return None  # Force refresh
+            
         if cache_key in self.balance_cache:
             cached_data = self.balance_cache[cache_key]
-            if time.time() - cached_data['timestamp'] < self.cache_timeout:
+            # Cache válido apenas por 10 segundos (reduzido para evitar problemas)
+            if time.time() - cached_data['timestamp'] < 10:
                 return cached_data['balance']
         return None
     
@@ -188,13 +192,11 @@ class DEXHandler:
         """Obtém saldo WETH da carteira com cache e RPC backup"""
         cache_key = f"weth_balance_{WALLET_ADDRESS}"
         
-        # Verificar cache primeiro
+        # SEMPRE tentar obter saldo fresco (cache curto)
         cached_balance = self._get_cached_balance(cache_key)
-        if cached_balance is not None and cached_balance > 0:
-            return cached_balance
         
         # Tentar obter saldo com rate limiting
-        for attempt in range(3):  # Máximo 3 tentativas (aumentado)
+        for attempt in range(5):  # Máximo 5 tentativas
             try:
                 await BASE_RPC_LIMITER.acquire()
                 
@@ -223,14 +225,14 @@ class DEXHandler:
             except Exception as e:
                 if "429" in str(e) or "Too Many Requests" in str(e):
                     BASE_RPC_LIMITER.handle_429_error()
-                    if attempt < 2:
-                        print(f"⚠️ Rate limit - tentativa {attempt + 1}/3")
-                        await asyncio.sleep(3)  # Esperar 3 segundos antes de tentar novamente
+                    if attempt < 4:
+                        print(f"⚠️ Rate limit - tentativa {attempt + 1}/5, aguardando...")
+                        await asyncio.sleep(5)  # Esperar mais
                         continue
                 
-                print(f"❌ Erro ao obter saldo WETH: {e}")
-                if attempt == 2:  # Última tentativa
-                    # Retornar valor do cache mesmo que expirou, é melhor que 0
+                print(f"❌ Erro ao obter saldo WETH: {str(e)[:50]}")
+                if attempt == 4:  # Última tentativa
+                    # Usar cache mesmo que expirou
                     cached = self._get_cached_balance(cache_key)
                     if cached is not None:
                         print(f"⚠️ Usando saldo em cache: {cached:.6f} WETH")
