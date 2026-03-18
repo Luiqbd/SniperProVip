@@ -15,6 +15,7 @@ from security_validator import SecurityValidator
 from aggressive_strategy import AggressiveStrategy
 from ai_optimizer import AIOptimizer
 from ai_predictor import AIPredictor
+from ai_auto_learner import AIAutoLearner, get_ai_learner, TradeResult
 
 # Inicializar colorama
 init(autoreset=True)
@@ -41,6 +42,9 @@ class SniperBot:
         self.profit_history = []
         self.smart_scaling = SMART_SCALING_ENABLED
         self.last_balance_check = 0
+        
+        # IA Auto-Aprendizado
+        self.ai_learner = get_ai_learner()
         
         # Cache para saldos (evitar rate limit)
         self._weth_balance_cache = 0.0
@@ -236,13 +240,17 @@ class SniperBot:
             # Verificar se tem WETH suficiente para trading e ETH para gas
             min_eth_for_gas = 0.000001  # Mínimo ETH para gas (mais flexível)
             
-            # Calcular quantos trades são possíveis
-            possible_trades = int(weth_balance / TRADE_AMOUNT_WETH) if weth_balance > 0 else 0
+            # Obter valor do trade da IA (auto-ajustável)
+            ai_trade_amount = self.ai_learner.get_current_params()['trade_amount']
+            effective_trade_amount = min(ai_trade_amount, weth_balance * 0.2)  # Máximo 20% do saldo
             
-            if weth_balance >= TRADE_AMOUNT_WETH:
+            # Calcular quantos trades são possíveis
+            possible_trades = int(weth_balance / effective_trade_amount) if weth_balance > 0 else 0
+            
+            if weth_balance >= effective_trade_amount:
                 print(f"{Fore.GREEN}✅ Saldo otimizado para trading!{Style.RESET_ALL}")
                 print(f"{Fore.GREEN}   WETH disponível: {weth_balance:.6f}{Style.RESET_ALL}")
-                print(f"{Fore.GREEN}   Valor por trade: {TRADE_AMOUNT_WETH:.6f} WETH{Style.RESET_ALL}")
+                print(f"{Fore.GREEN}   Valor por trade (IA): {effective_trade_amount:.6f} WETH{Style.RESET_ALL}")
                 print(f"{Fore.GREEN}   Trades possíveis: {possible_trades} operações{Style.RESET_ALL}")
                 if balance_eth >= min_eth_for_gas:
                     print(f"{Fore.GREEN}   ETH para gas: {balance_eth:.6f} ✅{Style.RESET_ALL}")
@@ -253,19 +261,19 @@ class SniperBot:
                 print("🚀 BOT PRONTO PARA OPERAR!")
                 print(f"✅ Inicialização completa")
                 print(f"💰 Trades possíveis: {possible_trades}")
-                print(f"🎯 Valor por trade: {TRADE_AMOUNT_WETH:.6f} WETH")
+                print(f"🎯 Valor por trade (IA): {effective_trade_amount:.6f} WETH")
                 print(f"⛽ Gas disponível: {'✅' if balance_eth >= min_eth_for_gas else '⚠️'}")
                 print("🔍 Aguardando novos tokens...")
             else:
                 print(f"{Fore.YELLOW}⚠️ Saldo baixo mas continuará monitorando!{Style.RESET_ALL}")
                 print(f"{Fore.YELLOW}   WETH disponível: {weth_balance:.6f}{Style.RESET_ALL}")
-                print(f"{Fore.YELLOW}   Necessário para 1 trade: {TRADE_AMOUNT_WETH:.6f}{Style.RESET_ALL}")
+                print(f"{Fore.YELLOW}   Necessário para 1 trade: {effective_trade_amount:.6f}{Style.RESET_ALL}")
                 print(f"{Fore.YELLOW}   💡 Bot aguardará mais saldo ou tokens com menor valor{Style.RESET_ALL}")
                 
                 # Log saldo baixo
                 print("⚠️ BOT INICIADO - SALDO BAIXO")
                 print(f"💰 WETH disponível: {weth_balance:.6f}")
-                print(f"🎯 Necessário: {TRADE_AMOUNT_WETH:.6f} WETH")
+                print(f"🎯 Necessário: {effective_trade_amount:.6f} WETH")
                 print("🔍 Monitorando tokens...")
                 print("💡 Aguardando saldo suficiente")
             
@@ -663,8 +671,48 @@ class SniperBot:
                 # Log da transação
                 if ENABLE_LOGGING:
                     self.logger.info(f"BUY - {token_info['symbol']} - Amount: {trade_amount} ETH - TX: {tx_hash}")
+                
+                # Reportar resultado para IA
+                try:
+                    result = TradeResult(
+                        token_symbol=token_info.get('symbol', 'UNKNOWN'),
+                        token_address=token_address,
+                        buy_price=trade_amount,
+                        sell_price=0,  # Ainda não vendeu
+                        profit_loss_percent=0,  # Ainda não realizado
+                        gas_spent=0.0001,  # Estimado
+                        timestamp=time.time(),
+                        score=token_info.get('score', 50),
+                        liquidity=token_info.get('liquidity', 0),
+                        holders=token_info.get('holders', 0),
+                        success=True
+                    )
+                    self.ai_learner.add_trade_result(result)
+                except Exception as ai_error:
+                    print(f"{Fore.YELLOW}⚠️ Erro ao reportar para IA: {ai_error}{Style.RESET_ALL}")
             else:
                 print(f"{Fore.RED}❌ Falha na execução da compra{Style.RESET_ALL}")
+                
+                # Reportar falha para IA
+                try:
+                    result = TradeResult(
+                        token_symbol=token_info.get('symbol', 'UNKNOWN'),
+                        token_address=token_address,
+                        buy_price=trade_amount,
+                        sell_price=0,
+                        profit_loss_percent=-100,  # Perda total
+                        gas_spent=0.0001,
+                        timestamp=time.time(),
+                        score=token_info.get('score', 50),
+                        liquidity=token_info.get('liquidity', 0),
+                        holders=token_info.get('holders', 0),
+                        success=False,
+                        failure_reason="Transaction failed"
+                    )
+                    self.ai_learner.add_trade_result(result)
+                except:
+                    pass
+                
                 await self.telegram_bot.send_notification(
                     f"❌ Falha na compra de {token_info['symbol']} - Verifique gas e liquidez", 
                     "high"
@@ -903,7 +951,21 @@ class SniperBot:
         print(f"{Fore.YELLOW}📈 Trades executados: {self.trades_executed}{Style.RESET_ALL}")
         print(f"{Fore.YELLOW}✅ Trades bem-sucedidos: {self.successful_trades}{Style.RESET_ALL}")
         print(f"{Fore.YELLOW}💰 Lucro total: {self.total_profit:.6f} ETH{Style.RESET_ALL}")
-        print(f"{Fore.YELLOW}⚙️ Valor por trade: {TRADE_AMOUNT_WETH} ETH{Style.RESET_ALL}")
+        
+        # Obter parâmetros da IA
+        ai_params = self.ai_learner.get_current_params()
+        print(f"{Fore.CYAN}⚙️ Valor por trade (IA): {ai_params['trade_amount']:.6f} WETH{Style.RESET_ALL}")
+        
+        # Status da IA Auto-Aprendizado
+        print(f"{Fore.CYAN}{'='*50}")
+        print(f"🤖 IA AUTO-PROGRAMÁVEL")
+        print(f"{'='*50}{Style.RESET_ALL}")
+        print(f"{Fore.YELLOW}🎯 Win Rate: {self.ai_learner.get_win_rate()*100:.1f}%{Style.RESET_ALL}")
+        print(f"{Fore.YELLOW}⛽ Gas multiplier: {ai_params['gas_multiplier']:.1f}x{Style.RESET_ALL}")
+        print(f"{Fore.YELLOW}📉 Slippage: {ai_params['slippage']}%{Style.RESET_ALL}")
+        print(f"{Fore.YELLOW}🎯 Score mínimo: {ai_params['min_score']}{Style.RESET_ALL}")
+        print(f"{Fore.YELLOW}🛑 Stop loss: {ai_params['stop_loss']}%{Style.RESET_ALL}")
+        print(f"{Fore.YELLOW}🎯 Target profit: {ai_params['target_profit']}%{Style.RESET_ALL}")
         
         # Status da IA
         if hasattr(self, 'ai_optimizer'):
