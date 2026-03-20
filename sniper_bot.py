@@ -15,6 +15,7 @@ from security_validator import SecurityValidator
 from aggressive_strategy import AggressiveStrategy
 from ai_optimizer import AIOptimizer
 from ai_predictor import AIPredictor
+from sniper_logger import *
 
 # Inicializar colorama
 init(autoreset=True)
@@ -444,6 +445,9 @@ class SniperBot:
             # Agora usamos ETH nativo diretamente para trading
             eth_balance = balance_eth
             
+            # Log de verificação de saldo
+            log_balance_check(eth_balance)
+            
             # Log detalhado dos saldos
             print(f"{Fore.CYAN}💰 Verificação de saldos:{Style.RESET_ALL}")
             print(f"{Fore.CYAN}   ETH (gas + trading): {eth_balance:.6f} ETH{Style.RESET_ALL}")
@@ -494,6 +498,7 @@ class SniperBot:
                     print(f"{Fore.YELLOW}💡 Usando ETH disponível: {trade_amount:.6f}{Style.RESET_ALL}")
                 else:
                     print(f"{Fore.RED}❌ ETH insuficiente!{Style.RESET_ALL}")
+                    log_insufficient_balance(token_info.get('symbol', 'UNKNOWN'), trade_amount, eth_balance, "ETH")
                     await self.telegram_bot.send_notification(
                         f"❌ **Compra cancelada**\n"
                         f"💰 ETH: {eth_balance:.6f}\n"
@@ -504,6 +509,7 @@ class SniperBot:
             
             # Verificação final ETH
             if eth_balance < 0.000001:
+                log_insufficient_balance(token_info.get('symbol', 'UNKNOWN'), 0.000001, eth_balance, "ETH")
                 print(f"{Fore.RED}❌ ETH insuficiente!{Style.RESET_ALL}")
                 return
             
@@ -563,6 +569,7 @@ class SniperBot:
             
             if tx_hash:
                 print(f"{Fore.GREEN}✅ Compra enviada! TX: {tx_hash}{Style.RESET_ALL}")
+                log_buy_attempt(token_info.get('symbol', 'UNKNOWN'), trade_amount, f"TX: {tx_hash}")
                 print(f"{Fore.YELLOW}⏳ Aguardando confirmação da blockchain...{Style.RESET_ALL}")
                 
                 # Aguardar confirmação
@@ -574,6 +581,7 @@ class SniperBot:
                     if buy_receipt and buy_receipt.status == 1:
                         self.trades_executed += 1
                         print(f"{Fore.GREEN}✅ Compra CONFIRMADA! TX: {tx_hash}{Style.RESET_ALL}")
+                        log_buy_success(token_info.get('symbol', 'UNKNOWN'), trade_amount, tx_hash, best_dex)
                         
                         # Notificar via sistema em tempo real
                         try:
@@ -591,11 +599,15 @@ class SniperBot:
                             print(f"📱 Notificação de compra enviada!")
                         except Exception as e:
                             print(f"⚠️ Erro ao enviar notificação: {e}")
+                            log_error("NOTIFICATION_ERROR", str(e))
                         
                         # Agendar venda
                         asyncio.create_task(self._schedule_sell_order(token_address, token_info, tx_hash))
                     else:
-                        print(f"{Fore.RED}❌ Compra FALHOU na blockchain (Status: {buy_receipt.status if buy_receipt else 'N/A'}){Style.RESET_ALL}")
+                        status = buy_receipt.status if buy_receipt else 'N/A'
+                        print(f"{Fore.RED}❌ Compra FALHOU na blockchain (Status: {status}){Style.RESET_ALL}")
+                        log_buy_failure(token_info.get('symbol', 'UNKNOWN'), trade_amount, f"Status: {status}")
+                        log_tx_reverted(tx_hash, f"Status: {status}")
                         await self.telegram_bot.send_notification(
                             f"❌ **Compra FALHOU!**\n\n"
                             f"📛 Token: {token_info['symbol']}\n"
@@ -606,12 +618,14 @@ class SniperBot:
                         )
                 except Exception as e:
                     print(f"{Fore.RED}❌ Erro ao verificar transação: {e}{Style.RESET_ALL}")
+                    log_error("BUY_RECEIPT_ERROR", str(e), tx_hash=tx_hash)
                 
                 # Log da transação
                 if ENABLE_LOGGING:
                     self.logger.info(f"BUY - {token_info['symbol']} - Amount: {trade_amount} ETH - TX: {tx_hash}")
             else:
                 print(f"{Fore.RED}❌ Falha na execução da compra{Style.RESET_ALL}")
+                log_buy_failure(token_info.get('symbol', 'UNKNOWN'), trade_amount, "execute_swap returned None")
                 await self.telegram_bot.send_notification(
                     f"❌ Falha na compra de {token_info['symbol']} - Verifique gas e liquidez", 
                     "high"
@@ -619,6 +633,7 @@ class SniperBot:
                 
         except Exception as e:
             print(f"{Fore.RED}❌ Erro na execução da compra: {str(e)}{Style.RESET_ALL}")
+            log_error("BUY_EXECUTION_ERROR", str(e), exception=e)
             await self.telegram_bot.send_notification(
                 f"❌ Erro crítico na compra de {token_info['symbol']}: {str(e)}", 
                 "high"
@@ -710,6 +725,7 @@ class SniperBot:
             
             if sell_tx_hash:
                 print(f"{Fore.GREEN}✅ Venda enviada! TX: {sell_tx_hash}{Style.RESET_ALL}")
+                log_sell_attempt(token_info.get('symbol', 'UNKNOWN'), token_balance)
                 
                 # Aguardar e verificar confirmação
                 await asyncio.sleep(10)
@@ -719,6 +735,7 @@ class SniperBot:
                     if sell_receipt and sell_receipt.status == 1:
                         self.successful_trades += 1
                         print(f"{Fore.GREEN}✅ Venda CONFIRMADA! TX: {sell_tx_hash}{Style.RESET_ALL}")
+                        log_sell_success(token_info.get('symbol', 'UNKNOWN'), token_balance, sell_tx_hash)
                         
                         # Notificar venda via Telegram
                         try:
@@ -736,11 +753,15 @@ class SniperBot:
                             print(f"📱 Notificação de venda enviada!")
                         except Exception as e:
                             print(f"⚠️ Erro ao enviar notificação de venda: {e}")
+                            log_error("SELL_NOTIFICATION_ERROR", str(e))
                         
                         # Calcular lucro
                         await self._calculate_profit(buy_tx_hash, sell_tx_hash, token_info.get('symbol', 'TOKEN'))
                     else:
-                        print(f"{Fore.RED}❌ Venda FALHOU na blockchain (Status: {sell_receipt.status if sell_receipt else 'N/A'}){Style.RESET_ALL}")
+                        status = sell_receipt.status if sell_receipt else 'N/A'
+                        print(f"{Fore.RED}❌ Venda FALHOU na blockchain (Status: {status}){Style.RESET_ALL}")
+                        log_sell_failure(token_info.get('symbol', 'UNKNOWN'), token_balance, f"Status: {status}")
+                        log_tx_reverted(sell_tx_hash, f"Status: {status}")
                         await self.telegram_bot.send_notification(
                             f"❌ **VENDA FALHOU!**\n\n"
                             f"📛 Token: {token_info['symbol']}\n"
@@ -750,12 +771,14 @@ class SniperBot:
                         )
                 except Exception as e:
                     print(f"{Fore.RED}❌ Erro ao verificar venda: {e}{Style.RESET_ALL}")
+                    log_error("SELL_RECEIPT_ERROR", str(e), tx_hash=sell_tx_hash)
                 
                 # Log da transação
                 if ENABLE_LOGGING:
                     self.logger.info(f"SELL - {token_info['symbol']} - TX: {sell_tx_hash}")
             else:
                 print(f"{Fore.RED}❌ Falha na execução da venda{Style.RESET_ALL}")
+                log_sell_failure(token_info.get('symbol', 'UNKNOWN'), token_balance, "execute_swap returned None")
                 await self.telegram_bot.send_notification(
                     f"❌ **Falha na venda!**\n"
                     f"📛 {token_info['symbol']}\n"
@@ -766,6 +789,7 @@ class SniperBot:
                 
         except Exception as e:
             print(f"{Fore.RED}❌ Erro na execução da venda: {str(e)}{Style.RESET_ALL}")
+            log_error("SELL_EXECUTION_ERROR", str(e), exception=e)
             await self.telegram_bot.send_notification(
                 f"❌ **Erro crítico na venda**\n"
                 f"📛 {token_info['symbol']}\n"
