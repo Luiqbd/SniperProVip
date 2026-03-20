@@ -610,7 +610,7 @@ class DEXHandler:
                     'value': amount_in  # ETH enviado diretamente!
                 })
             else:
-                # Vender token por WETH
+                # Vender token por ETH nativo - usando swapExactTokensForETH!
                 # Primeiro aprovar o token se necessário
                 token_abi = [
                     {"constant": False, "inputs": [{"name": "_spender", "type": "address"}, {"name": "_value", "type": "uint256"}], "name": "approve", "outputs": [{"name": "", "type": "bool"}], "type": "function"},
@@ -642,8 +642,8 @@ class DEXHandler:
                     # Aguardar confirmação da aprovação
                     time.sleep(3)
                 
-                # Fazer swap de token para WETH
-                transaction = router_contract.functions.swapExactTokensForTokens(
+                # Fazer swap de token para ETH nativo - swapExactTokensForETH!
+                transaction = router_contract.functions.swapExactTokensForETH(
                     amount_in,
                     amount_out_min,
                     path,
