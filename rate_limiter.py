@@ -77,10 +77,10 @@ class SmartRateLimiter:
 
 # Configurações OTIMIZADAS para Base Network (evitar 429 errors)
 BASE_RPC_LIMITER = SmartRateLimiter(RateLimitConfig(
-    max_requests=15,  # 15 requisições por janela (evitar rate limit)
+    max_requests=5,  # 5 requisições por janela (mais conservador para evitar rate limit)
     time_window=60,   # 60 segundos
     backoff_multiplier=1.5,  # Backoff moderado
-    max_backoff=10    # Backoff máximo 10 segundos
+    max_backoff=15    # Backoff máximo 15 segundos
 ))
 
 TELEGRAM_LIMITER = SmartRateLimiter(RateLimitConfig(

@@ -8,11 +8,18 @@ from web3 import Web3
 from config import *
 
 class TokenMonitor:
-    def __init__(self, web3: Web3, callback: Callable):
+    def __init__(self, web3: Web3, callback: Callable, dex_handler=None):
         self.web3 = web3
         self.callback = callback
+        self.dex_handler = dex_handler  # Para usar RPC failover
         self.monitored_tokens = {}
         self.running = False
+        
+    def _get_web3(self):
+        """Retorna instância web3 com suporte a failover"""
+        if self.dex_handler:
+            return self.dex_handler._get_web3_instance()
+        return self.web3
         
     def add_token(self, token_address: str, token_symbol: str = None):
         """Adiciona token para monitoramento"""
@@ -34,31 +41,31 @@ class TokenMonitor:
             print(f"🗑️ Token removido do monitoramento: {token_address}")
     
     async def monitor_new_tokens(self):
-        """Monitora TODOS os novos tokens sendo criados - MODO AGRESSIVO"""
-        print("🚀 Iniciando monitoramento AGRESSIVO de TODOS os tokens...")
+        """Monitora TODOS os novos tokens sendo criados - MODO AGRESSIVO ULTRA RÁPIDO"""
+        print("🚀 Iniciando monitoramento ULTRA RÁPIDO de TODOS os tokens...")
         
-        last_block = self.web3.eth.block_number
+        last_block = self._get_web3().eth.block_number
         consecutive_errors = 0
         scan_failures = 0
         
         while self.running:
             try:
-                current_block = self.web3.eth.block_number
+                current_block = self._get_web3().eth.block_number
                 
                 if current_block > last_block:
                     # Escanear múltiplos blocos de uma vez para não perder nada
-                    blocks_to_scan = min(current_block - last_block, 10)  # Máximo 10 blocos por vez
+                    blocks_to_scan = min(current_block - last_block, 20)  # Máximo 20 blocos por vez
                     await self._scan_blocks_for_new_pairs(last_block + 1, current_block)
                     last_block = current_block
                     consecutive_errors = 0  # Reset erros após sucesso
                     scan_failures = 0
                 else:
                     # Se não há novos blocos, tentar método alternativo
-                    if scan_failures < 3:
+                    if scan_failures < 2:
                         await self._aggressive_token_detection()
                         scan_failures += 1
                 
-                await asyncio.sleep(2)  # Verificar a cada 2 segundos
+                await asyncio.sleep(1)  # Verificar a cada 1 segundo (mais rápido)
                 
             except Exception as e:
                 consecutive_errors += 1
@@ -74,7 +81,7 @@ class TokenMonitor:
                     except:
                         pass
                 
-                await asyncio.sleep(10)  # Esperar mais tempo em caso de erro
+                await asyncio.sleep(5)  # Esperar mais tempo em caso de erro
     
     async def _aggressive_token_detection(self):
         """Detecção agressiva de tokens - método alternativo"""
@@ -147,7 +154,7 @@ class TokenMonitor:
                 for topic in pair_created_topics:
                     try:
                         # Buscar logs de PairCreated
-                        logs = self.web3.eth.get_logs({
+                        logs = self._get_web3().eth.get_logs({
                             'fromBlock': from_block,
                             'toBlock': to_block,
                             'address': factory,
@@ -180,7 +187,7 @@ class TokenMonitor:
             transfer_topic = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef'
             
             # Buscar transfers recentes
-            logs = self.web3.eth.get_logs({
+            logs = self._get_web3().eth.get_logs({
                 'fromBlock': from_block,
                 'toBlock': to_block,
                 'topics': [transfer_topic]
@@ -217,7 +224,7 @@ class TokenMonitor:
                 return False
             
             # Verificar se é um contrato válido
-            code = self.web3.eth.get_code(token_address)
+            code = self._get_web3().eth.get_code(token_address)
             if len(code) < 100:  # Contrato muito pequeno
                 return False
             
@@ -329,7 +336,7 @@ class TokenMonitor:
                 {"constant": True, "inputs": [], "name": "totalSupply", "outputs": [{"name": "", "type": "uint256"}], "type": "function"}
             ]
             
-            contract = self.web3.eth.contract(address=token_address, abi=erc20_abi)
+            contract = self._get_web3().eth.contract(address=token_address, abi=erc20_abi)
             
             # Verificações MUITO básicas - apenas se responde às funções ERC20
             try:
@@ -346,7 +353,7 @@ class TokenMonitor:
                 pass
             
             # Método alternativo - verifica se tem código no endereço
-            code = self.web3.eth.get_code(token_address)
+            code = self._get_web3().eth.get_code(token_address)
             if len(code) > 2:  # Tem código (não é EOA)
                 print(f"✅ Token aceito (método alternativo): {token_address}")
                 return True
@@ -384,7 +391,7 @@ class TokenMonitor:
                 {"constant": True, "inputs": [], "name": "totalSupply", "outputs": [{"name": "", "type": "uint256"}], "type": "function"}
             ]
             
-            contract = self.web3.eth.contract(address=token_address, abi=erc20_abi)
+            contract = self._get_web3().eth.contract(address=token_address, abi=erc20_abi)
             
             # Tenta obter cada informação individualmente
             try:

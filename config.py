@@ -11,44 +11,44 @@ except:
 # Base Network Configuration
 BASE_RPC_URL = os.getenv('BASE_RPC_URL', 'https://mainnet.base.org')
 BASE_RPC_BACKUP = os.getenv('BASE_RPC_BACKUP', 'https://base-mainnet.public.blastapi.io')
+BASE_RPC_3 = os.getenv('BASE_RPC_3', 'https://base-rpc.publicnode.com')
+BASE_RPC_4 = os.getenv('BASE_RPC_4', 'https://1rpc.io/base')
 CHAIN_ID = int(os.getenv('CHAIN_ID', '8453'))
 
 # Wallet Configuration
 PRIVATE_KEY = os.getenv('PRIVATE_KEY')
 WALLET_ADDRESS = os.getenv('WALLET_ADDRESS')
 
-# Trading Configuration - OTIMIZADO PARA BASE NETWORK - MODO CRESCIMENTO RÁPIDO
+# Trading Configuration - OTIMIZADO PARA BASE NETWORK - MODO SEGURO
 INITIAL_WETH_BALANCE = float(os.getenv('INITIAL_WETH_BALANCE', '0.001990'))  # Saldo inicial real
-TRADE_AMOUNT_WETH = float(os.getenv('TRADE_AMOUNT_WETH', '0.000398'))  # 20% do saldo (agressivo para crescimento)
-MAX_GAS_PRICE = int(os.getenv('MAX_GAS_PRICE', '50'))  # Aumentado para Base Network (mais competitivo)
-SLIPPAGE_TOLERANCE = float(os.getenv('SLIPPAGE_TOLERANCE', '20'))  # Aumentado para memecoins muito voláteis
-MAX_PRIORITY_FEE = int(os.getenv('MAX_PRIORITY_FEE', '5'))  # Aumentado para velocidade na Base Network
+TRADE_AMOUNT_WETH = float(os.getenv('TRADE_AMOUNT_WETH', '0.000200'))  # 10% do saldo (mais conservador)
+MAX_GAS_PRICE = int(os.getenv('MAX_GAS_PRICE', '2'))  # 2 gwei mínimo na Base
+SLIPPAGE_TOLERANCE = float(os.getenv('SLIPPAGE_TOLERANCE', '25'))  # 25% slippage 
+MAX_PRIORITY_FEE = int(os.getenv('MAX_PRIORITY_FEE', '2'))  # Priority fee 
 
-# Sistema de Crescimento Inteligente - CONFIGURAÇÃO AGRESSIVA
+# Sistema de Crescimento Inteligente - AUTO-PROGRAMÁVEL
 SMART_SCALING_ENABLED = os.getenv('SMART_SCALING_ENABLED', 'true').lower() == 'true'
-PROFIT_REINVESTMENT_RATE = float(os.getenv('PROFIT_REINVESTMENT_RATE', '0.6'))  # 60% dos lucros reinvestidos (mais agressivo)
-MAX_TRADE_PERCENTAGE = float(os.getenv('MAX_TRADE_PERCENTAGE', '30'))  # Máximo 30% do saldo por trade (agressivo)
-MIN_TRADE_AMOUNT = float(os.getenv('MIN_TRADE_AMOUNT', '0.000050'))  # Mínimo para trades pequenos
+PROFIT_REINVESTMENT_RATE = float(os.getenv('PROFIT_REINVESTMENT_RATE', '0.5'))  # 50% dos lucros reinvestidos (mais conservador)
+MAX_TRADE_PERCENTAGE = float(os.getenv('MAX_TRADE_PERCENTAGE', '20'))  # Máximo 20% do saldo por trade
+MIN_TRADE_AMOUNT = float(os.getenv('MIN_TRADE_AMOUNT', '0.000050'))  # Mínimo para garantir execução
 
-# Modo de Emergência para Saldos Baixos - OTIMIZADO PARA SALDO PEQUENO
-EMERGENCY_MODE_THRESHOLD = float(os.getenv('EMERGENCY_MODE_THRESHOLD', '0.000002'))  # Ativar modo emergência se ETH < 0.000002
-EMERGENCY_TRADE_AMOUNT = float(os.getenv('EMERGENCY_TRADE_AMOUNT', '0.000200'))  # Trade maior em modo emergência (usa mais do saldo)
-EMERGENCY_GAS_PRICE = float(os.getenv('EMERGENCY_GAS_PRICE', '0.1'))  # Gas price mínimo
-BALANCE_GROWTH_THRESHOLD = float(os.getenv('BALANCE_GROWTH_THRESHOLD', '0.005000'))  # Quando dobrar trade size
-
-# Auto-scaling - Crescimento automático do investimento
+# Auto-scaling - Crescimento automático baseado em PERFORMANCE
 AUTO_SCALE_ENABLED = os.getenv('AUTO_SCALE_ENABLED', 'true').lower() == 'true'
-SCALE_UP_THRESHOLD = float(os.getenv('SCALE_UP_THRESHOLD', '0.002500'))  # Quando saldo chegar a 0.0025, aumentar trades
-SCALE_DOWN_THRESHOLD = float(os.getenv('SCALE_DOWN_THRESHOLD', '0.001500'))  # Se saldo cair para 0.0015, diminuir trades
+SCALE_UP_THRESHOLD = float(os.getenv('SCALE_UP_THRESHOLD', '0.003000'))  # Quando saldo chegar a 0.003, aumentar trades
+SCALE_DOWN_THRESHOLD = float(os.getenv('SCALE_DOWN_THRESHOLD', '0.001200'))  # Se saldo cair para 0.0012, diminuir trades
+WIN_RATE_SCALE_UP = float(os.getenv('WIN_RATE_SCALE_UP', '0.70'))  # 70% win rate para aumentar
+WIN_RATE_SCALE_DOWN = float(os.getenv('WIN_RATE_SCALE_DOWN', '0.40'))  # 40% win rate para diminuir
 
-# Configurações de Trading Inteligente - MODO AGRESSIVO PARA CRESCIMENTO RÁPIDO
+# Configurações de Trading Inteligente - MODO SEGURO COM AUTO-AJUSTE
 MEMECOIN_MODE = os.getenv('MEMECOIN_MODE', 'true').lower() == 'true'  # Habilitado para memecoins
-ALL_TOKENS_MODE = os.getenv('ALL_TOKENS_MODE', 'true').lower() == 'true'  # Detectar TODOS os tokens
-MIN_TOKEN_AGE_MINUTES = int(os.getenv('MIN_TOKEN_AGE_MINUTES', '0'))  # Tokens brand new
-MAX_TOKEN_AGE_HOURS = int(os.getenv('MAX_TOKEN_AGE_HOURS', '72'))  # Expandido para mais oportunidades
-TARGET_PROFIT_PERCENTAGE = float(os.getenv('TARGET_PROFIT_PERCENTAGE', '25'))  # Lucro mais agressivo (25% para crescimento rápido)
-AGGRESSIVE_TRADING = os.getenv('AGGRESSIVE_TRADING', 'true').lower() == 'true'  # Trading agressivo
+ALL_TOKENS_MODE = os.getenv('ALL_TOKENS_MODE', 'false').lower() == 'true'  # Detectar TODOS os tokens - DESABILITADO para evitar scams
+MIN_TOKEN_AGE_MINUTES = int(os.getenv('MIN_TOKEN_AGE_MINUTES', '5'))  # Tokens com pelo menos 5 min de vida
+MAX_TOKEN_AGE_HOURS = int(os.getenv('MAX_TOKEN_AGE_HOURS', '24'))  # Máximo 24h para evitar rugs
+TARGET_PROFIT_PERCENTAGE = float(os.getenv('TARGET_PROFIT_PERCENTAGE', '8'))  # Lucro de 8% (mais realista)
+AGGRESSIVE_TRADING = os.getenv('AGGRESSIVE_TRADING', 'false').lower() == 'true'  # Desabilitado - modo seguro
 QUICK_PROFIT_MODE = os.getenv('QUICK_PROFIT_MODE', 'true').lower() == 'true'  # Lucros rápidos
+QUICK_EXIT_PERCENTAGE = float(os.getenv('QUICK_EXIT_PERCENTAGE', '5'))  # Saída rápida com 5%
+STOP_LOSS_PERCENTAGE = float(os.getenv('STOP_LOSS_PERCENTAGE', '15'))  # Stop loss 15% (mais apertado para preservar capital)
 
 # DEX Configuration
 ENABLE_UNISWAP_V3 = os.getenv('ENABLE_UNISWAP_V3', 'true').lower() == 'true'
@@ -56,31 +56,34 @@ ENABLE_AERODROME = os.getenv('ENABLE_AERODROME', 'true').lower() == 'true'
 ENABLE_BASESWAP = os.getenv('ENABLE_BASESWAP', 'true').lower() == 'true'
 ENABLE_SUSHISWAP = os.getenv('ENABLE_SUSHISWAP', 'true').lower() == 'true'
 
-# Security Settings - Otimizado para memecoins com crescimento rápido
-ENABLE_MEV_PROTECTION = os.getenv('ENABLE_MEV_PROTECTION', 'false').lower() == 'true'  # Desabilitado para transações mais rápidas
-MIN_LIQUIDITY_USD = float(os.getenv('MIN_LIQUIDITY_USD', '500'))  # Reduzido para mais oportunidades
-MAX_TRADE_IMPACT = float(os.getenv('MAX_TRADE_IMPACT', '20'))  # Mais flexível para oportunidades
-MIN_SCORE_TO_BUY = int(os.getenv('MIN_SCORE_TO_BUY', '15'))  # Score muito reduzido para mais trades
-ENABLE_HONEYPOT_CHECK = os.getenv('ENABLE_HONEYPOT_CHECK', 'false').lower() == 'true'  # Desabilitado para speed
-RISK_TOLERANCE = os.getenv('RISK_TOLERANCE', 'high').lower()  # high, medium, low
+# Security Settings - OTIMIZADO PARA EVITAR SCAMS E HONEYPOTS
+ENABLE_MEV_PROTECTION = os.getenv('ENABLE_MEV_PROTECTION', 'true').lower() == 'true'  # Habilitado para proteção
+MIN_LIQUIDITY_USD = float(os.getenv('MIN_LIQUIDITY_USD', '1000'))  # Mínimo $1000 de liquidez (mais seguro)
+MAX_TRADE_IMPACT = float(os.getenv('MAX_TRADE_IMPACT', '20'))  # Máximo 20% impacto no preço
+MIN_SCORE_TO_BUY = int(os.getenv('MIN_SCORE_TO_BUY', '60'))  # Score mínimo 60/100 (mais seletivo)
+ENABLE_HONEYPOT_CHECK = os.getenv('ENABLE_HONEYPOT_CHECK', 'true').lower() == 'true'  # HABILITADO - verificar se token permite venda
+RISK_TOLERANCE = os.getenv('RISK_TOLERANCE', 'medium').lower()  # medium, não high
 
-# Trading Mode - MODO REAL HABILITADO
+# Trading Mode - MODO SEGURO HABILITADO
 SIMULATION_MODE = os.getenv('SIMULATION_MODE', 'false').lower() == 'true'  # DESABILITADO - TRADING REAL
 REAL_TRADING_ENABLED = os.getenv('REAL_TRADING_ENABLED', 'true').lower() == 'true'  # HABILITADO
 FAST_MODE = os.getenv('FAST_MODE', 'true').lower() == 'true'  # Modo rápido para oportunidades
-MEV_PROTECTION = os.getenv('MEV_PROTECTION', 'true').lower() == 'true'  # Proteção MEV
+MEV_PROTECTION = os.getenv('MEV_PROTECTION', 'true').lower() == 'true'  # Habilitado para proteção
 
-# Performance Settings
-TRANSACTION_TIMEOUT = int(os.getenv('TRANSACTION_TIMEOUT', '30'))  # Timeout para transações
-CONFIRMATION_BLOCKS = int(os.getenv('CONFIRMATION_BLOCKS', '1'))  # Confirmações necessárias
-MAX_RETRIES = int(os.getenv('MAX_RETRIES', '3'))  # Tentativas máximas
-SCAN_INTERVAL = float(os.getenv('SCAN_INTERVAL', '0.5'))  # Intervalo de scan em segundos
-PRIORITY_FEE = int(os.getenv('PRIORITY_FEE', '2'))  # Priority fee em Gwei
+# Performance Settings - OTIMIZADO PARA TRANSAÇÕES CONFIRMADAS
+TRANSACTION_TIMEOUT = int(os.getenv('TRANSACTION_TIMEOUT', '60'))  # Timeout maior para confirmar
+CONFIRMATION_BLOCKS = int(os.getenv('CONFIRMATION_BLOCKS', '2'))  # Esperar 2 confirmações
+MAX_RETRIES = int(os.getenv('MAX_RETRIES', '5'))  # Mais tentativas
+SCAN_INTERVAL = float(os.getenv('SCAN_INTERVAL', '1.0'))  # Scan mais seguro (1s)
+PRIORITY_FEE = int(os.getenv('PRIORITY_FEE', '1'))  # Priority fee 1 gwei
 
-# Security Thresholds
-MIN_LIQUIDITY_ETH = float(os.getenv('MIN_LIQUIDITY_ETH', '0.5'))  # Liquidez mínima em ETH
-MIN_HOLDERS = int(os.getenv('MIN_HOLDERS', '10'))  # Holders mínimos
-MIN_TOKEN_AGE = int(os.getenv('MIN_TOKEN_AGE', '0'))  # Idade mínima do token em segundos
+# Telegram - Não esperar resposta
+TELEGRAM_WAIT_RESPONSE = os.getenv('TELEGRAM_WAIT_RESPONSE', 'false').lower() == 'true'
+
+# Security Thresholds - OTIMIZADO PARA TOKENES SEGUROS
+MIN_LIQUIDITY_ETH = float(os.getenv('MIN_LIQUIDITY_ETH', '0.5'))  # Mínimo 0.5 ETH de liquidez
+MIN_HOLDERS = int(os.getenv('MIN_HOLDERS', '50'))  # Mínimo 50 holders (mais distribuído)
+MIN_TOKEN_AGE = int(os.getenv('MIN_TOKEN_AGE', '300'))  # Mínimo 5 minutos (em segundos)
 PRIMARY_DEX = os.getenv('PRIMARY_DEX', 'Uniswap V3')  # DEX preferida
 
 # Monitoring
@@ -106,11 +109,26 @@ UNISWAP_V3_FACTORY = "0x33128a8fC17869897dcE68Ed026d694621f6FDfD"
 AERODROME_FACTORY = "0x420DD381b31aEf6683db6B902084cB0FFECe40Da"
 BASESWAP_FACTORY = "0xFDa619b6d20975be80A10332cD39b9a4b0FAa8BB"
 
-# Gas Configuration - OTIMIZADO PARA BASE NETWORK
-DEFAULT_GAS_LIMIT = 400000  # Aumentado para Base Network
-PRIORITY_GAS_LIMIT = 600000  # Aumentado para transações complexas
-APPROVAL_GAS_LIMIT = 100000  # Gas específico para aprovações
-SWAP_GAS_LIMIT = 350000     # Gas específico para swaps
+# Gas Configuration - OTIMIZADO PARA TRANSAÇÕES CONFIRMADAS
+DEFAULT_GAS_LIMIT = 200000  # Padrão para Base
+PRIORITY_GAS_LIMIT = 250000  # Para transações prioritárias
+APPROVAL_GAS_LIMIT = 60000   # Para aprovações
+SWAP_GAS_LIMIT = 200000     # Para swaps
+
+# ========== IA AUTO-PROGRAMÁVEL - NOVAS CONFIGURAÇÕES ==========
+# Sistema que ajusta automaticamente baseado em performance
+AI_AUTO_ADJUST = os.getenv('AI_AUTO_ADJUST', 'true').lower() == 'true'
+AI_LEARNING_RATE = float(os.getenv('AI_LEARNING_RATE', '0.1'))  # Taxa de aprendizado
+AI_MIN_CONFIDENCE = float(os.getenv('AI_MIN_CONFIDENCE', '0.6'))  # Mínimo 60% de confiança
+AI_ADJUST_INTERVAL = int(os.getenv('AI_ADJUST_INTERVAL', '10'))  # Ajustar a cada 10 trades
+AI_MAX_TRADE_AMOUNT = float(os.getenv('AI_MAX_TRADE_AMOUNT', '0.000500'))  # Máximo 0.0005 WETH por trade
+AI_MIN_TRADE_AMOUNT = float(os.getenv('AI_MIN_TRADE_AMOUNT', '0.000100'))  # Mínimo 0.0001 WETH por trade
+
+# Auto-otimização de parâmetros
+AI_OPTIMIZE_GAS = os.getenv('AI_OPTIMIZE_GAS', 'true').lower() == 'true'  # Auto ajustar gas
+AI_OPTIMIZE_SLIPPAGE = os.getenv('AI_OPTIMIZE_SLIPPAGE', 'true').lower() == 'true'  # Auto ajustar slippage
+AI_OPTIMIZE_SCORE = os.getenv('AI_OPTIMIZE_SCORE', 'true').lower() == 'true'  # Auto ajustar score mínimo
+AI_OPTIMIZE_STOPLOSS = os.getenv('AI_OPTIMIZE_STOPLOSS', 'true').lower() == 'true'  # Auto ajustar stop loss
 
 def validate_config():
     """Validate essential configuration"""

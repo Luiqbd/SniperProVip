@@ -22,30 +22,35 @@ class AggressiveStrategy:
         self.failed_trades = 0
         
         # Configurações agressivas para crescimento rápido
-        self.base_trade_amount = TRADE_AMOUNT_WETH  # 0.000398 WETH (20% do saldo)
-        self.max_trade_percentage = 0.40  # Até 40% do saldo por trade (muito agressivo)
-        self.profit_target = 0.20  # 20% de lucro por trade (agressivo)
-        self.stop_loss = 0.10  # 10% de stop loss (controlado)
-        self.quick_profit_threshold = 0.08  # Vender com 8% de lucro se muito volátil
+        self.base_trade_amount = TRADE_AMOUNT_WETH  # 0.000498 WETH (25% do saldo)
+        self.max_trade_percentage = 0.50  # Até 50% do saldo por trade (muito agressivo)
+        self.profit_target = 0.15  # 15% de lucro por trade (mais rápido)
+        self.stop_loss = 0.15  # 15% de stop loss (controlado)
+        self.quick_profit_threshold = 0.05  # Vender com 5% de lucro se muito volátil (mais rápido)
         
         # Sistema de scaling dinâmico
         self.scaling_factor = 1.0
         self.consecutive_wins = 0
         self.consecutive_losses = 0
-        self.max_consecutive_losses = 5
+        self.max_consecutive_losses = 3
         
         # Filtros agressivos para tokens - score mínimo bem baixo para MÁXIMAS oportunidades
         self.min_score_aggressive = 5  # Score mínimo EXTREMAMENTE baixo para maximizar oportunidades
         self.memecoin_bonus = 10  # Bonus para memecoins
         self.new_token_bonus = 15  # Bonus para tokens novos (< 1 hora)
         
-        # Timing agressivo - lucros rápidos
-        self.hold_time_min = 15  # Mínimo 15 segundos
-        self.hold_time_max = 180  # Máximo 3 minutos (muito rápido)
-        self.quick_exit_time = 30  # Saída rápida em 30 segundos se lucro >= 8%
+        # Timing agressivo - lucros GRANDES
+        self.hold_time_min = 10  # Mínimo 10 segundos
+        self.hold_time_max = 180  # Máximo 3 minutos (para lucros grandes)
+        self.quick_exit_time = 30  # Saída rápida em 30 segundos se lucro >= 5%
+        
+        # Alvos de lucro - FOCO EM LUCROS GRANDES
+        self.take_profit = 0.10  # 10% lucro alvo
+        self.quick_profit_threshold = 0.05  # 5% quick exit
+        self.stop_loss = 0.20  # 20% stop loss
         
         # Configurações de risco
-        self.max_simultaneous_positions = 8  # Máximo 8 posições simultâneas para mais oportunidades
+        self.max_simultaneous_positions = 10  # Máximo 10 posições simultâneas para mais oportunidades
         self.current_positions = {}
         self.position_sizes = {}
         self.position_timeout = 600  # 10 minutos timeout para limpeza automática
@@ -254,9 +259,14 @@ class AggressiveStrategy:
                     token_address, buy_amount_wei, is_buy=False
                 )
                 
+                # Verificar se tem liquidez antes de calcular lucro
+                if not current_value or current_value is None or current_value == 0:
+                    print(f"⚠️ Sem liquidez para {position['symbol']}, pulando verificação")
+                    return False
+                
                 if current_value > 0:
-                    current_value_eth = self.sniper_bot.web3.from_wei(current_value, 'ether')
-                    current_profit = (current_value_eth - position['buy_amount']) / position['buy_amount']
+                    current_value_eth = float(self.sniper_bot.web3.from_wei(current_value, 'ether'))
+                    current_profit = (float(current_value_eth) - float(position['buy_amount'])) / float(position['buy_amount'])
                     
                     print(f"💹 {position['symbol']}: Lucro atual {current_profit*100:.1f}%")
                     
@@ -290,8 +300,8 @@ class AggressiveStrategy:
                 )
                 
                 if current_value > 0:
-                    current_value_eth = self.sniper_bot.web3.from_wei(current_value, 'ether')
-                    price_change = (current_value_eth - position['buy_amount']) / position['buy_amount']
+                    current_value_eth = float(self.sniper_bot.web3.from_wei(current_value, 'ether'))
+                    price_change = (float(current_value_eth) - float(position['buy_amount'])) / float(position['buy_amount'])
                     
                     print(f"💹 {position['symbol']}: Preço mudou {price_change*100:.1f}% (compra: {position['buy_amount']:.6f}, atual: {current_value_eth:.6f})")
                     
@@ -343,10 +353,17 @@ class AggressiveStrategy:
                 token_address, amount_in, is_buy=False
             )
             
-            if not best_router:
-                # Fallback para Uniswap V3
-                best_router = dex_handler.dexs.get('uniswap_v3', {}).get('router')
-                best_dex = "uniswap_v3"
+            # VERIFICAR LIQUIDEZ ANTES DE VENDER
+            if not best_router or best_price is None or best_price == 0:
+                print(f"⚠️ Token sem liquidez para venda - CANCELANDO")
+                await self.sniper_bot.telegram_bot.send_notification(
+                    f"❌ **Venda cancelada!**\n"
+                    f"📛 {position['symbol']}\n"
+                    f"⚠️ Sem liquidez para vender\n"
+                    f"💡 Tokens mantidos na carteira", 
+                    "high"
+                )
+                return
             
             print(f"🎯 Executando venda via {best_dex}...")
             
@@ -362,8 +379,8 @@ class AggressiveStrategy:
                 # Obter valor recebido em WETH
                 try:
                     received_wei = best_price
-                    received_eth = self.sniper_bot.web3.from_wei(received_wei, 'ether') if received_wei else 0
-                    profit_loss = (received_eth - position['buy_amount']) / position['buy_amount']
+                    received_eth = float(self.sniper_bot.web3.from_wei(received_wei, 'ether')) if received_wei else 0
+                    profit_loss = (float(received_eth) - float(position['buy_amount'])) / float(position['buy_amount'])
                 except:
                     profit_loss = 0  # Se não conseguir calcular, assumir zero
             else:
@@ -396,7 +413,7 @@ class AggressiveStrategy:
                 print(f"❌ Trade com perda: {profit_loss*100:.1f}% ({self.consecutive_losses} perdas consecutivas)")
             
             # Atualizar saldo
-            self.current_balance += position['buy_amount'] * profit_loss
+            self.current_balance += float(position['buy_amount']) * float(profit_loss)
             self.profit_history.append(profit_loss)
             
             # Remover posição

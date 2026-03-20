@@ -5,8 +5,12 @@ services:
     dockerfilePath: ./Dockerfile
     plan: starter
     region: oregon
-    branch: main
+    branch: fix/sniper-buy-sell-fix
     envVars:
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_CHAT_ID
+        sync: false
       - key: PRIVATE_KEY
         sync: false
       - key: WALLET_ADDRESS

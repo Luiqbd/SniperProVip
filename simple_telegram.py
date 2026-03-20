@@ -1,187 +1,572 @@
 #!/usr/bin/env python3
 """
-Versão simplificada do Telegram bot para evitar conflitos
+Sistema Avançado de Telegram Bot para Sniper Pro VIP
+Comandos e botões funcionando 100%
 """
 
 import asyncio
 import requests
 import json
 import re
-from config import TELEGRAM_BOT_TOKEN, TELEGRAM_AUTHORIZED_USERS
+import os
+import threading
+from typing import Dict, Optional, Callable
+from config import *
 
-class SimpleTelegramBot:
-    def __init__(self):
-        self.token = TELEGRAM_BOT_TOKEN
+class AdvancedTelegramBot:
+    """Bot de Telegram avançado com botões e comandos funcionando"""
+    
+    def __init__(self, sniper_bot_ref=None):
+        self.token = os.getenv('TELEGRAM_BOT_TOKEN') or TELEGRAM_BOT_TOKEN
         self.authorized_users = []
+        self.sniper_bot = sniper_bot_ref  # Referência ao bot principal
         
         # Processar usuários autorizados
-        if TELEGRAM_AUTHORIZED_USERS:
-            for user_id in TELEGRAM_AUTHORIZED_USERS.split(','):
+        users_str = os.getenv('TELEGRAM_CHAT_ID') or TELEGRAM_CHAT_ID
+        if users_str:
+            for user_id in users_str.split(','):
                 try:
                     user_id = int(user_id.strip())
-                    if user_id > 0:  # IDs válidos são positivos
+                    if user_id > 0:
                         self.authorized_users.append(user_id)
                 except:
                     pass
         
         self.enabled = bool(self.token and self.authorized_users)
+        self.last_update_id = 0
+        self.polling_thread = None
+        self.running = False
         
         if not self.enabled:
-            print("⚠️ Telegram bot desabilitado - token ou usuários não configurados")
+            print("⚠️ Telegram bot desabilitado - configure TELEGRAM_BOT_TOKEN e TELEGRAM_CHAT_ID")
+        else:
+            print(f"✅ Telegram Bot Avançado inicializado para {len(self.authorized_users)} usuário(s)")
     
-    def escape_markdown(self, text: str) -> str:
-        """Escapa caracteres especiais do Markdown para evitar erros de parsing"""
-        # Caracteres que precisam ser escapados no Markdown
-        special_chars = ['_', '*', '[', ']', '(', ')', '~', '`', '>', '#', '+', '-', '=', '|', '{', '}', '.', '!']
-        
-        for char in special_chars:
-            text = text.replace(char, f'\\{char}')
-        
-        return text
+    def set_sniper_bot(self, sniper_bot):
+        """Define a referência do sniper bot"""
+        self.sniper_bot = sniper_bot
     
-    def markdown_to_html(self, text: str) -> str:
-        """Converte Markdown básico para HTML para evitar erros de parsing"""
-        # Escapar caracteres HTML primeiro
-        text = text.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
-        
-        # Converter formatação Markdown para HTML
-        # Bold: *texto* -> <b>texto</b>
-        text = re.sub(r'\*([^*]+)\*', r'<b>\1</b>', text)
-        
-        # Italic: _texto_ -> <i>texto</i>
-        text = re.sub(r'_([^_]+)_', r'<i>\1</i>', text)
-        
-        # Code: `texto` -> <code>texto</code>
-        text = re.sub(r'`([^`]+)`', r'<code>\1</code>', text)
-        
-        return text
+    def escape_html(self, text: str) -> str:
+        """Escapa caracteres HTML especiais"""
+        return text.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
     
-    async def send_message(self, message: str, priority: str = "normal", buttons: list = None):
-        """Envia mensagem usando requests direto (sem python-telegram-bot)"""
+    def format_balance(self, balance_wei: int, decimals: int = 18) -> str:
+        """Formata saldo para visualização"""
+        return f"{balance_wei / (10**decimals):.6f}"
+    
+    async def send_message(self, text: str, parse_mode: str = "HTML", reply_markup: dict = None, user_id: int = None):
+        """Envia mensagem para usuário(s) autorizado(s)"""
         if not self.enabled:
-            print(f"📱 Notificação [{priority}]: {message}")
+            print(f"📱 [Mock] {text}")
             return
         
-        for user_id in self.authorized_users:
+        targets = [user_id] if user_id else self.authorized_users
+        
+        for uid in targets:
             try:
-                # Converter Markdown para HTML para evitar problemas de parsing
-                html_message = self.markdown_to_html(message)
-                
                 payload = {
-                    "chat_id": user_id,
-                    "text": html_message,
-                    "parse_mode": "HTML"
+                    "chat_id": uid,
+                    "text": text,
+                    "parse_mode": parse_mode
                 }
-                
-                # Adicionar botões se fornecidos
-                if buttons:
-                    keyboard = {"inline_keyboard": []}
-                    for button_row in buttons:
-                        row = []
-                        for button in button_row:
-                            row.append({
-                                "text": button["text"],
-                                "callback_data": button["callback_data"]
-                            })
-                        keyboard["inline_keyboard"].append(row)
-                    payload["reply_markup"] = keyboard
+                if reply_markup:
+                    payload["reply_markup"] = reply_markup
                 
                 response = requests.post(
                     f"https://api.telegram.org/bot{self.token}/sendMessage",
                     json=payload,
-                    timeout=10
+                    timeout=15
                 )
                 
-                if response.status_code == 200:
-                    print(f"✅ Mensagem enviada para {user_id}")
-                else:
-                    print(f"❌ Erro ao enviar para {user_id}: {response.text}")
+                if response.status_code != 200:
+                    print(f"❌ Erro Telegram: {response.text[:100]}")
                     
             except Exception as e:
                 print(f"❌ Erro ao enviar mensagem: {e}")
     
-    async def send_trade_alert(self, token_address: str, token_name: str, action: str, details: dict = None):
-        """Envia alerta de trade"""
-        if action == "BUY":
-            emoji = "🟢"
-        elif action == "SELL":
-            emoji = "🔴"
-        else:
-            emoji = "📊"
-        
-        message = f"{emoji} *{action}* - {token_name}\n"
-        message += f"📍 `{token_address}`\n"
-        
-        if details:
-            if 'score' in details:
-                message += f"📊 Score: {details['score']}/100\n"
-            if 'price' in details:
-                message += f"💰 Preço: {details['price']}\n"
-            if 'amount' in details:
-                message += f"💎 Quantidade: {details['amount']}\n"
-        
-        await self.send_message(message, "high")
-    
-    async def send_status_update(self, status_data: dict):
-        """Envia atualização de status com botões de controle"""
-        message = "📊 *STATUS DO SNIPER BOT*\n\n"
-        message += f"🔄 Status: {status_data.get('status', 'Desconhecido')}\n"
-        message += f"📈 Trades: {status_data.get('trades_executed', 0)}\n"
-        message += f"✅ Sucessos: {status_data.get('successful_trades', 0)}\n"
-        message += f"💰 Lucro: {status_data.get('total_profit', '0.000000')} ETH\n"
-        message += f"💳 Saldo ETH: {status_data.get('eth_balance', '0.000000')} ETH\n"
-        message += f"💰 Saldo WETH: {status_data.get('weth_balance', '0.000000')} WETH\n"
-        
-        # Adicionar botões de controle
-        buttons = [
-            [
-                {"text": "🔄 Atualizar Status", "callback_data": "update_status"},
-                {"text": "⚙️ Configurações", "callback_data": "settings"}
+    def get_main_menu_keyboard(self):
+        """Retorna teclado do menu principal"""
+        return {
+            "keyboard": [
+                [{"text": "🔥 Iniciar Sniper", "callback_data": "start_sniper"}],
+                [{"text": "⏹️ Parar Sniper", "callback_data": "stop_sniper"}],
+                [{"text": "💰 Ver Saldos", "callback_data": "check_balances"}],
+                [{"text": "📊 Ver Status", "callback_data": "check_status"}],
+                [{"text": "📈 Histórico Trades", "callback_data": "check_history"}],
+                [{"text": "⚙️ Configurações", "callback_data": "check_settings"}]
             ],
-            [
-                {"text": "📊 Histórico", "callback_data": "history"},
-                {"text": "💰 Saldos", "callback_data": "balances"}
+            "resize_keyboard": True,
+            "one_time_keyboard": False
+        }
+    
+    def get_status_keyboard(self):
+        """Retorna teclado de status com botões inline"""
+        return {
+            "inline_keyboard": [
+                [
+                    {"text": "🔄 Atualizar", "callback_data": "status_refresh"},
+                    {"text": "▶️ Iniciar", "callback_data": "sniper_start"},
+                    {"text": "⏹️ Parar", "callback_data": "sniper_stop"}
+                ],
+                [
+                    {"text": "💰 Saldos", "callback_data": "status_balances"},
+                    {"text": "📈 Trades", "callback_data": "status_trades"}
+                ],
+                [
+                    {"text": "🔙 Menu Principal", "callback_data": "main_menu"}
+                ]
             ]
-        ]
-        
-        await self.send_message(message, "normal", buttons)
+        }
     
-    async def send_notification(self, message: str, priority: str = "normal"):
-        """Método de compatibilidade - redireciona para send_message"""
-        await self.send_message(message, priority)
-    
-    async def cleanup_and_disable_polling(self):
-        """Limpa e desabilita polling para evitar conflitos"""
-        if not self.token:
-            return
+    async def send_main_menu(self, user_id: int):
+        """Envia menu principal"""
+        text = """
+<b>🔥 SNIPER PRO VIP - MENU PRINCIPAL</b>
+
+<b>Bem-vindo ao seu bot de sniper!</b>
+
+Selecione uma opção abaixo:
+"""
         
+        await self.send_message(text, reply_markup=self.get_main_menu_keyboard())
+    
+    async def handle_command(self, command: str, user_id: int) -> bool:
+        """Processa comandos recebidos"""
+        command = command.lower().strip()
+        
+        # Verificar autorização
+        if user_id not in self.authorized_users:
+            await self.send_message(f"❌ <b>Acesso negado!</b>\nVocê não está autorizado a usar este bot.", user_id=user_id)
+            return True
+        
+        if command in ['/start', 'menu', 'início', 'start']:
+            await self.send_main_menu(user_id)
+            return True
+        
+        elif command in ['/help', 'ajuda', 'help']:
+            text = """
+<b>📖 AJUDA - SNIPER PRO VIP</b>
+
+<b>Comandos disponíveis:</b>
+/start - Menu principal
+/saldo - Ver saldos da carteira
+/status - Ver status do sniper
+/iniciar - Iniciar o sniper
+/parar - Parar o sniper
+/historico - Ver histórico de trades
+/config - Ver configurações
+
+<b>Botões:</b>
+Use os botões do menu para 控制o rápida.
+"""
+            await self.send_message(text, user_id=user_id)
+            return True
+        
+        elif command in ['/saldo', 'saldo', '💰', 'saldos']:
+            await self.show_balances(user_id)
+            return True
+        
+        elif command in ['/status', 'status', '📊']:
+            await self.show_status(user_id)
+            return True
+        
+        elif command in ['/iniciar', 'iniciar', 'start_sniper', '🔥']:
+            await self.start_sniper(user_id)
+            return True
+        
+        elif command in ['/parar', 'parar', 'stop_sniper', '⏹️']:
+            await self.stop_sniper(user_id)
+            return True
+        
+        elif command in ['/historico', 'historico', 'history', '📈']:
+            await self.show_history(user_id)
+            return True
+        
+        elif command in ['/config', 'config', 'configurações', '⚙️']:
+            await self.show_settings(user_id)
+            return True
+        
+        return False
+    
+    async def show_balances(self, user_id: int):
+        """Mostra saldos da carteira"""
         try:
-            print("🧹 Limpando Telegram para evitar conflitos...")
+            if not self.sniper_bot or not self.sniper_bot.web3:
+                await self.send_message("❌ <b>Sniper não conectado!</b>\nInicie o sniper primeiro.", user_id=user_id)
+                return
             
-            # Deletar webhook
-            requests.post(
-                f"https://api.telegram.org/bot{self.token}/deleteWebhook",
-                json={"drop_pending_updates": True},
-                timeout=10
+            web3 = self.sniper_bot.web3
+            
+            # Saldo ETH
+            eth_balance_wei = web3.eth.get_balance(WALLET_ADDRESS)
+            eth_balance = float(web3.from_wei(eth_balance_wei, 'ether'))
+            
+            # Saldo WETH
+            weth_contract = web3.eth.contract(
+                address=WETH_ADDRESS,
+                abi=[{
+                    "constant": True,
+                    "inputs": [{"name": "_owner", "type": "address"}],
+                    "name": "balanceOf",
+                    "outputs": [{"name": "balance", "type": "uint256"}],
+                    "type": "function"
+                }]
             )
+            weth_balance_wei = weth_contract.functions.balanceOf(WALLET_ADDRESS).call()
+            weth_balance = float(web3.from_wei(weth_balance_wei, 'ether'))
             
-            # Limpar updates pendentes
-            for _ in range(3):
-                requests.post(
-                    f"https://api.telegram.org/bot{self.token}/getUpdates",
-                    json={"offset": 999999999, "limit": 100, "timeout": 1},
-                    timeout=10
-                )
+            # Saldo total
+            total_eth = eth_balance + weth_balance
             
-            print("✅ Telegram limpo - usando modo somente envio")
+            text = f"""
+<b>💰 SALDOS DA CARTEIRA</b>
+
+<b>ETH (Gas):</b> {eth_balance:.6f} ETH
+<b>WETH (Trading):</b> {weth_balance:.6f} WETH
+
+<b>Total:</b> {total_eth:.6f} ETH
+
+<i>Carteira: <code>{WALLET_ADDRESS[:10]}...{WALLET_ADDRESS[-6:]}</code></i>
+"""
+            
+            keyboard = {
+                "inline_keyboard": [
+                    [{"text": "🔄 Atualizar", "callback_data": "balances_refresh"}],
+                    [{"text": "🔙 Menu", "callback_data": "main_menu"}]
+                ]
+            }
+            
+            await self.send_message(text, reply_markup=keyboard, user_id=user_id)
             
         except Exception as e:
-            print(f"❌ Erro na limpeza Telegram: {e}")
+            await self.send_message(f"❌ Erro ao buscar saldos:\n{str(e)[:200]}", user_id=user_id)
+    
+    async def show_status(self, user_id: int):
+        """Mostra status do sniper"""
+        try:
+            if not self.sniper_bot:
+                await self.send_message("❌ <b>Sniper não inicializado!</b>", user_id=user_id)
+                return
+            
+            running = "🟢 <b>ATIVO</b>" if self.sniper_bot.running else "🔴 <b>INATIVO</b>"
+            
+            trades = self.sniper_bot.trades_executed
+            successes = self.sniper_bot.successful_trades
+            profit = self.sniper_bot.total_profit
+            
+            success_rate = (successes / trades * 100) if trades > 0 else 0
+            
+            # Posições ativas
+            active_positions = 0
+            if hasattr(self.sniper_bot, 'aggressive_strategy'):
+                active_positions = len(self.sniper_bot.aggressive_strategy.current_positions)
+            
+            text = f"""
+<b>📊 STATUS DO SNIPER</b>
+
+<b>Status:</b> {running}
+<b>Trades Executados:</b> {trades}
+<b>Trades com Sucesso:</b> {successes}
+<b>Taxa de Acerto:</b> {success_rate:.1f}%
+<b>Lucro Total:</b> {profit:.6f} ETH
+<b>Posições Ativas:</b> {active_positions}
+
+<b>Estratégia:</b> {'🚀 Agressiva' if AGGRESSIVE_TRADING else '📊 Normal'}
+<b>Modo:</b> {'🔥 Memecoin' if MEMECOIN_MODE else '💎 Padrão'}
+"""
+            
+            keyboard = self.get_status_keyboard()
+            await self.send_message(text, reply_markup=keyboard, user_id=user_id)
+            
+        except Exception as e:
+            await self.send_message(f"❌ Erro ao buscar status:\n{str(e)[:200]}", user_id=user_id)
+    
+    async def start_sniper(self, user_id: int):
+        """Inicia o sniper"""
+        try:
+            if not self.sniper_bot:
+                await self.send_message("❌ <b>Sniper não inicializado!</b>", user_id=user_id)
+                return
+            
+            if self.sniper_bot.running:
+                await self.send_message("ℹ️ <b>O sniper já está ativo!</b>", user_id=user_id)
+                return
+            
+            self.sniper_bot.running = True
+            if hasattr(self.sniper_bot, 'token_monitor'):
+                self.sniper_bot.token_monitor.start_monitoring()
+            
+            await self.send_message("""
+✅ <b>SNIPER INICIADO!</b>
+
+<b>O sniper está monitorando e pronto para comprar/vender!</b>
+
+🔍 Detectando novos tokens...
+⏳ Aguardando oportunidades...
+""", user_id=user_id)
+            
+        except Exception as e:
+            await self.send_message(f"❌ Erro ao iniciar sniper:\n{str(e)[:200]}", user_id=user_id)
+    
+    async def stop_sniper(self, user_id: int):
+        """Para o sniper"""
+        try:
+            if not self.sniper_bot:
+                await self.send_message("❌ <b>Sniper não inicializado!</b>", user_id=user_id)
+                return
+            
+            if not self.sniper_bot.running:
+                await self.send_message("ℹ️ <b>O sniper já está parado!</b>", user_id=user_id)
+                return
+            
+            self.sniper_bot.running = False
+            if hasattr(self.sniper_bot, 'token_monitor'):
+                self.sniper_bot.token_monitor.stop_monitoring()
+            
+            await self.send_message("""
+⏹️ <b>SNIPER PARADO!</b>
+
+<b>O sniper foi desativado com sucesso.</b>
+
+💡 Use /iniciar para ligar novamente.
+""", user_id=user_id)
+            
+        except Exception as e:
+            await self.send_message(f"❌ Erro ao parar sniper:\n{str(e)[:200]}", user_id=user_id)
+    
+    async def show_history(self, user_id: int):
+        """Mostra histórico de trades"""
+        try:
+            if not self.sniper_bot:
+                await self.send_message("❌ <b>Sniper não inicializado!</b>", user_id=user_id)
+                return
+            
+            trades = self.sniper_bot.trades_executed
+            successes = self.sniper_bot.successful_trades
+            profit = self.sniper_bot.total_profit
+            
+            text = f"""
+<b>📈 HISTÓRICO DE TRADES</b>
+
+<b>Total de Trades:</b> {trades}
+<b>Trades com Sucesso:</b> {successes}
+<b>Trades Falhados:</b> {trades - successes}
+<b>Lucro Total:</b> {profit:.6f} ETH
+
+<i>Para mais detalhes, verifique os logs do bot.</i>
+"""
+            
+            keyboard = {
+                "inline_keyboard": [
+                    [{"text": "🔄 Atualizar", "callback_data": "history_refresh"}],
+                    [{"text": "🔙 Menu", "callback_data": "main_menu"}]
+                ]
+            }
+            
+            await self.send_message(text, reply_markup=keyboard, user_id=user_id)
+            
+        except Exception as e:
+            await self.send_message(f"❌ Erro ao buscar histórico:\n{str(e)[:200]}", user_id=user_id)
+    
+    async def show_settings(self, user_id: int):
+        """Mostra configurações"""
+        try:
+            text = f"""
+<b>⚙️ CONFIGURAÇÕES DO SNIPER</b>
+
+<b>Rede:</b> Base Network (8453)
+
+<b>Trading:</b>
+• Valor por trade: {TRADE_AMOUNT_WETH} WETH
+• Slippage: {SLIPPAGE_TOLERANCE}%
+• Lucro alvo: {TARGET_PROFIT_PERCENTAGE}%
+
+<b>Segurança:</b>
+• Honeypot Check: {'✅ Ativado' if ENABLE_HONEYPOT_CHECK else '❌ Desativado'}
+• MEV Protection: {'✅ Ativado' if ENABLE_MEV_PROTECTION else '❌ Desativado'}
+
+<b>Estratégia:</b>
+• Modo Agressivo: {'🔥 Ativado' if AGGRESSIVE_TRADING else '📊 Normal'}
+• Modo Memecoin: {'🐕 Ativado' if MEMECOIN_MODE else '❌ Desativado'}
+• Modo Rápido: {'⚡ Ativado' if QUICK_PROFIT_MODE else '❌ Desativado'}
+
+<b>Tokens Mínimos:</b>
+• Liquidez: ${MIN_LIQUIDITY_USD}
+• Score: {MIN_SCORE_TO_BUY}
+"""
+            
+            keyboard = {
+                "inline_keyboard": [
+                    [{"text": "🔙 Menu", "callback_data": "main_menu"}]
+                ]
+            }
+            
+            await self.send_message(text, reply_markup=keyboard, user_id=user_id)
+            
+        except Exception as e:
+            await self.send_message(f"❌ Erro ao buscar configurações:\n{str(e)[:200]}", user_id=user_id)
+    
+    async def handle_callback(self, callback_data: str, user_id: int):
+        """Processa callback de botões inline"""
+        if user_id not in self.authorized_users:
+            return
+        
+        callback_data = callback_data.lower()
+        
+        if callback_data == "main_menu":
+            await self.send_main_menu(user_id)
+        
+        elif callback_data in ["status_refresh", "check_status"]:
+            await self.show_status(user_id)
+        
+        elif callback_data in ["balances_refresh", "check_balances", "sniper_balances"]:
+            await self.show_balances(user_id)
+        
+        elif callback_data in ["sniper_start", "start_sniper"]:
+            await self.start_sniper(user_id)
+        
+        elif callback_data in ["sniper_stop", "stop_sniper"]:
+            await self.stop_sniper(user_id)
+        
+        elif callback_data in ["history_refresh", "check_history"]:
+            await self.show_history(user_id)
+        
+        elif callback_data in ["settings", "check_settings"]:
+            await self.show_settings(user_id)
+    
+    def start_polling(self):
+        """Inicia polling de mensagens em background"""
+        if not self.enabled:
+            return
+        
+        self.running = True
+        
+        def poll_loop():
+            offset = None
+            while self.running:
+                try:
+                    params = {"timeout": 30}
+                    if offset:
+                        params["offset"] = offset
+                    
+                    response = requests.get(
+                        f"https://api.telegram.org/bot{self.token}/getUpdates",
+                        params=params,
+                        timeout=35
+                    )
+                    
+                    if response.status_code == 200:
+                        data = response.json()
+                        if data.get("ok"):
+                            for update in data.get("result", []):
+                                offset = update.get("update_id", 0) + 1
+                                
+                                # Processar mensagem
+                                if "message" in update:
+                                    msg = update["message"]
+                                    text = msg.get("text", "")
+                                    user_id = msg.get("from", {}).get("id")
+                                    asyncio.run(self.handle_command(text, user_id))
+                                
+                                # Processar callback query
+                                elif "callback_query" in update:
+                                    cb = update["callback_query"]
+                                    user_id = cb.get("from", {}).get("id")
+                                    data = cb.get("data", "")
+                                    asyncio.run(self.handle_callback(data, user_id))
+                    
+                except Exception as e:
+                    print(f"⚠️ Erro no polling: {e}")
+                    import time
+                    time.sleep(5)
+        
+        thread = threading.Thread(target=poll_loop, daemon=True)
+        thread.start()
+        print("✅ Telegram polling iniciado em background")
+    
+    def stop_polling(self):
+        """Para o polling"""
+        self.running = False
+    
+    # Métodos de compatibilidade com o código antigo
+    
+    async def send_notification(self, message: str, priority: str = "normal"):
+        """Envia notificação (para compatibilidade)"""
+        text = f"<b>🔔 NOTIFICAÇÃO</b>\n\n{message}"
+        await self.send_message(text)
+    
+    async def send_trade_alert(self, token_address: str, token_name: str, action: str, details: dict = None):
+        """Envia alerta de trade"""
+        emoji = "🟢" if action == "BUY" else "🔴" if action == "SELL" else "📊"
+        
+        text = f"""
+{emoji} <b>ALERTA DE TRADE</b>
+
+<b>Token:</b> {token_name}
+<b>Ação:</b> {action}
+<b>Endereço:</b> <code>{token_address[:15]}...</code>
+"""
+        
+        if details:
+            if 'amount' in details:
+                text += f"\n<b>Quantidade:</b> {details['amount']}"
+            if 'price' in details:
+                text += f"\n<b>Preço:</b> {details['price']}"
+        
+        keyboard = {
+            "inline_keyboard": [
+                [{"text": "📊 Ver Status", "callback_data": "check_status"}]
+            ]
+        }
+        
+        await self.send_message(text, reply_markup=keyboard)
+    
+    async def send_status_update(self, status_data: dict):
+        """Envia atualização de status"""
+        status = status_data.get('status', 'Desconhecido')
+        running = "🟢 ATIVO" if status == 'Rodando' else "🔴 INATIVO"
+        
+        text = f"""
+<b>📊 STATUS ATUALIZADO</b>
+
+<b>Status:</b> {running}
+<b>Trades:</b> {status_data.get('trades_executed', 0)}
+<b>Sucessos:</b> {status_data.get('successful_trades', 0)}
+<b>Lucro:</b> {status_data.get('total_profit', '0')} ETH
+<b>ETH:</b> {status_data.get('eth_balance', '0')} ETH
+<b>WETH:</b> {status_data.get('weth_balance', '0')} WETH
+"""
+        
+        keyboard = self.get_status_keyboard()
+        await self.send_message(text, reply_markup=keyboard)
+    
+    async def start(self):
+        """Inicia o bot (para compatibilidade)"""
+        self.start_polling()
+        for user_id in self.authorized_users:
+            await self.send_main_menu(user_id)
+    
+    async def cleanup_and_disable_polling(self):
+        """Limpa e para polling"""
+        self.stop_polling()
+
 
 # Instância global
-simple_telegram = SimpleTelegramBot()
+advanced_telegram = None
 
-async def init_simple_telegram():
-    """Inicializa o bot simples"""
-    await simple_telegram.cleanup_and_disable_polling()
-    return simple_telegram
+def get_advanced_telegram(sniper_bot=None):
+    """Retorna instância do bot de telegram"""
+    global advanced_telegram
+    if advanced_telegram is None:
+        advanced_telegram = AdvancedTelegramBot(sniper_bot)
+    elif sniper_bot:
+        advanced_telegram.set_sniper_bot(sniper_bot)
+    return advanced_telegram
+
+
+# Alias para compatibilidade
+simple_telegram = None
+
+def get_simple_telegram():
+    """Alias para get_advanced_telegram"""
+    return get_advanced_telegram()

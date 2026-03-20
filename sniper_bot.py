@@ -13,6 +13,9 @@ from dex_handler import DEXHandler
 from token_monitor import TokenMonitor
 from security_validator import SecurityValidator
 from aggressive_strategy import AggressiveStrategy
+from ai_optimizer import AIOptimizer
+from ai_predictor import AIPredictor
+from ai_auto_learner import AIAutoLearner, get_ai_learner, TradeResult
 
 # Inicializar colorama
 init(autoreset=True)
@@ -40,6 +43,9 @@ class SniperBot:
         self.smart_scaling = SMART_SCALING_ENABLED
         self.last_balance_check = 0
         
+        # IA Auto-Aprendizado
+        self.ai_learner = get_ai_learner()
+        
         # Cache para saldos (evitar rate limit)
         self._weth_balance_cache = 0.0
         self._weth_balance_time = 0
@@ -60,16 +66,66 @@ class SniperBot:
             self.logger = logging.getLogger(__name__)
         else:
             self.logger = logging.getLogger(__name__)
+
+        # ============================================
+        # INICIALIZAR TELEGRAM BOT ULTIMATE
+        # ============================================
+        print("=" * 50)
+        print("🔍 INICIANDO TELEGRAM BOT...")
+        print("=" * 50)
         
-        # Inicializar Telegram Bot SIMPLES (sem conflitos)
+        # Verificar variáveis de ambiente
+        import os
+        tg_token = os.getenv('TELEGRAM_BOT_TOKEN')
+        tg_chat = os.getenv('TELEGRAM_CHAT_ID')
+        print(f"📋 TELEGRAM_BOT_TOKEN: {'CONFIGURADO' if tg_token else 'NÃO CONFIGURADO'}")
+        print(f"📋 TELEGRAM_CHAT_ID: {'CONFIGURADO' if tg_chat else 'NÃO CONFIGURADO'}")
+        
+        self.telegram_bot = None
+        telegram_enabled = False
         try:
-            from simple_telegram import simple_telegram
-            self.telegram_bot = simple_telegram
-            print("📱 Usando Telegram SIMPLES (sem conflitos)")
+            print("📥 Importando ultimate_telegram...")
+            from ultimate_telegram import get_ultimate_telegram
+            print("📥 Chamando get_ultimate_telegram...")
+            self.telegram_bot = get_ultimate_telegram(self)
+            
+            if self.telegram_bot:
+                print(f"✅ Telegram bot criado: {type(self.telegram_bot)}")
+                print(f"   Token: {'*' * 10}{self.telegram_bot.token[-10:] if self.telegram_bot.token else 'NENHUM'}")
+                print(f"   Users: {len(self.telegram_bot.authorized_users)}")
+                print(f"   Enabled: {self.telegram_bot.enabled}")
+                
+                telegram_enabled = self.telegram_bot.enabled
+                
+                if self.telegram_bot.enabled:
+                    print("🚀 Iniciando polling do Telegram...")
+                    self.telegram_bot.start_polling()
+                    print("✅ Polling iniciado!")
+                    
+                    # Testar notificação
+                    try:
+                        print("📱 Enviando notificação de teste...")
+                        self.telegram_bot.send_message_sync("🎯 **SNIPER INICIADO!**\n\n✅ Bot está funcionando!\n💰 Pronto para operar.")
+                        print("✅ Notificação de teste enviada!")
+                    except Exception as test_err:
+                        print(f"⚠️ Erro no teste: {test_err}")
+                else:
+                    print("⚠️ Telegram desabilitado (faltando token/chat_id)")
+            else:
+                print("❌ Telegram bot é None!")
         except Exception as e:
-            self.logger.warning(f"Telegram bot não disponível: {e}")
-            # Criar um mock do telegram bot para evitar erros
+            print(f"❌ ERRO AO CARREGAR TELEGRAM: {e}")
+            import traceback
+            traceback.print_exc()
+        
+        # Se Telegram não está funcionando, usar mock com prints
+        if not telegram_enabled or not self.telegram_bot:
+            print("⚠️ Usando Telegram mock (com prints)")
             self.telegram_bot = self._create_telegram_mock()
+        
+        print("=" * 50)
+        print("✅ TELEGRAM BOT CONFIGURADO")
+        print("=" * 50)
     
     def _create_telegram_mock(self):
         """Cria um mock do telegram bot para funcionar sem Telegram"""
@@ -80,8 +136,14 @@ class SniperBot:
             async def send_trade_alert(self, token_address, token_name, action, details=None):
                 print(f"🚨 Trade Alert [{action}]: {token_name} ({token_address[:10]}...)")
             
+            async def send_status_update(self, status_data):
+                print(f"📊 Status: {status_data}")
+            
             async def start(self):
                 print("📱 Telegram Mock: Funcionando sem Telegram")
+            
+            def set_sniper_bot(self, bot):
+                pass
         
         return TelegramMock()
         
@@ -122,7 +184,7 @@ class SniperBot:
             
             # Inicializar handlers
             self.dex_handler = DEXHandler(self.web3)
-            self.token_monitor = TokenMonitor(self.web3, self._process_new_token)
+            self.token_monitor = TokenMonitor(self.web3, self._process_new_token, self.dex_handler)
             self.security_validator = SecurityValidator(self.web3)
             
             # Inicializar estratégia agressiva
@@ -130,6 +192,14 @@ class SniperBot:
             # Reset posições antigas para começar limpo
             self.aggressive_strategy.reset_positions()
             print(f"{Fore.GREEN}🚀 Estratégia agressiva ativada para crescimento rápido{Style.RESET_ALL}")
+            
+            # Inicializar IA Otimizador
+            self.ai_optimizer = AIOptimizer(self)
+            print(f"{Fore.CYAN}🤖 IA Otimizador ativada - Ajustes automáticos{Style.RESET_ALL}")
+            
+            # Inicializar IA Preditiva (para lucros grandes)
+            self.ai_predictor = AIPredictor()
+            print(f"{Fore.CYAN}🎯 IA Preditiva ativada - Foco em lucros grandes!{Style.RESET_ALL}")
             
             # Verificar saldo ETH
             balance = self.web3.eth.get_balance(WALLET_ADDRESS)
@@ -140,6 +210,22 @@ class SniperBot:
             # Verificar saldo WETH (versão síncrona para inicialização)
             weth_balance = self._get_weth_balance_sync()
             print(f"{Fore.YELLOW}💰 Saldo WETH: {weth_balance:.6f} WETH{Style.RESET_ALL}")
+            
+            # ============================================
+            # AUTOMATICAMENTE CONVERTER ETH PARA WETH SE NECESSÁRIO
+            # ============================================
+            if weth_balance < TRADE_AMOUNT_WETH and balance_eth > 0.003:
+                print(f"{Fore.CYAN}🔄 Convertendo ETH para WETH...{Style.RESET_ALL}")
+                try:
+                    # Usar dex_handler para fazer o wrap (síncrono)
+                    if self.dex_handler:
+                        result = self.dex_handler.wrap_eth_to_weth()
+                        if result:
+                            # Atualizar saldo WETH após conversão
+                            weth_balance = self._get_weth_balance_sync()
+                            print(f"{Fore.GREEN}✅ WETH atualizado: {weth_balance:.6f}{Style.RESET_ALL}")
+                except Exception as wrap_error:
+                    print(f"{Fore.RED}❌ Erro ao converter ETH para WETH: {wrap_error}{Style.RESET_ALL}")
             
             # Log de saldos
             print(f"💰 Saldos verificados:")
@@ -154,13 +240,17 @@ class SniperBot:
             # Verificar se tem WETH suficiente para trading e ETH para gas
             min_eth_for_gas = 0.000001  # Mínimo ETH para gas (mais flexível)
             
-            # Calcular quantos trades são possíveis
-            possible_trades = int(weth_balance / TRADE_AMOUNT_WETH) if weth_balance > 0 else 0
+            # Obter valor do trade da IA (auto-ajustável)
+            ai_trade_amount = self.ai_learner.get_current_params()['trade_amount']
+            effective_trade_amount = min(ai_trade_amount, weth_balance * 0.2)  # Máximo 20% do saldo
             
-            if weth_balance >= TRADE_AMOUNT_WETH:
+            # Calcular quantos trades são possíveis
+            possible_trades = int(weth_balance / effective_trade_amount) if weth_balance > 0 else 0
+            
+            if weth_balance >= effective_trade_amount:
                 print(f"{Fore.GREEN}✅ Saldo otimizado para trading!{Style.RESET_ALL}")
                 print(f"{Fore.GREEN}   WETH disponível: {weth_balance:.6f}{Style.RESET_ALL}")
-                print(f"{Fore.GREEN}   Valor por trade: {TRADE_AMOUNT_WETH:.6f} WETH{Style.RESET_ALL}")
+                print(f"{Fore.GREEN}   Valor por trade (IA): {effective_trade_amount:.6f} WETH{Style.RESET_ALL}")
                 print(f"{Fore.GREEN}   Trades possíveis: {possible_trades} operações{Style.RESET_ALL}")
                 if balance_eth >= min_eth_for_gas:
                     print(f"{Fore.GREEN}   ETH para gas: {balance_eth:.6f} ✅{Style.RESET_ALL}")
@@ -171,19 +261,19 @@ class SniperBot:
                 print("🚀 BOT PRONTO PARA OPERAR!")
                 print(f"✅ Inicialização completa")
                 print(f"💰 Trades possíveis: {possible_trades}")
-                print(f"🎯 Valor por trade: {TRADE_AMOUNT_WETH:.6f} WETH")
+                print(f"🎯 Valor por trade (IA): {effective_trade_amount:.6f} WETH")
                 print(f"⛽ Gas disponível: {'✅' if balance_eth >= min_eth_for_gas else '⚠️'}")
                 print("🔍 Aguardando novos tokens...")
             else:
                 print(f"{Fore.YELLOW}⚠️ Saldo baixo mas continuará monitorando!{Style.RESET_ALL}")
                 print(f"{Fore.YELLOW}   WETH disponível: {weth_balance:.6f}{Style.RESET_ALL}")
-                print(f"{Fore.YELLOW}   Necessário para 1 trade: {TRADE_AMOUNT_WETH:.6f}{Style.RESET_ALL}")
+                print(f"{Fore.YELLOW}   Necessário para 1 trade: {effective_trade_amount:.6f}{Style.RESET_ALL}")
                 print(f"{Fore.YELLOW}   💡 Bot aguardará mais saldo ou tokens com menor valor{Style.RESET_ALL}")
                 
                 # Log saldo baixo
                 print("⚠️ BOT INICIADO - SALDO BAIXO")
                 print(f"💰 WETH disponível: {weth_balance:.6f}")
-                print(f"🎯 Necessário: {TRADE_AMOUNT_WETH:.6f} WETH")
+                print(f"🎯 Necessário: {effective_trade_amount:.6f} WETH")
                 print("🔍 Monitorando tokens...")
                 print("💡 Aguardando saldo suficiente")
             
@@ -253,6 +343,13 @@ class SniperBot:
             
             # Análise IA do token
             ai_analysis = await self.analyze_token_with_ai(token_address, token_info)
+            
+            # Análise da IA Preditiva (para lucros grandes)
+            if hasattr(self, 'ai_predictor'):
+                predictor_result = self.ai_predictor.analyze_token(token_info)
+                print(f"{Fore.MAGENTA}🎯 IA Preditiva: Score {predictor_result['score']}/100 - {predictor_result['prediction']}{Style.RESET_ALL}")
+                print(f"{Fore.MAGENTA}   Razão: {predictor_result['reason']}{Style.RESET_ALL}")
+                print(f"{Fore.MAGENTA}   Meta de lucro: {predictor_result['target_profit']*100:.0f}%{Style.RESET_ALL}")
             
             # Análise tradicional como backup
             traditional_analysis = self.token_monitor.analyze_token_potential(token_address)
@@ -339,15 +436,23 @@ class SniperBot:
             )
     
     async def _execute_buy_order(self, token_address: str, token_info: Dict):
-        """Executa ordem de compra"""
+        """Executa ordem de compra - ULTRA RÁPIDO"""
         try:
-            print(f"{Fore.GREEN}💰 Executando compra de {token_info['symbol']}...{Style.RESET_ALL}")
+            print(f"{Fore.GREEN}⚡ EXECUTANDO COMPRA ULTRA RÁPIDA - {token_info['symbol']}...{Style.RESET_ALL}")
+            print(f"{Fore.CYAN}🎯 FOCO: LUCROS GRANDES!{Style.RESET_ALL}")
             
-            # Usar valor dinâmico da estratégia agressiva
+            # Usar valor dinâmico da estratégia + IA
             if self.aggressive_strategy:
                 trade_amount = self.aggressive_strategy.calculate_dynamic_trade_amount()
             else:
                 trade_amount = self.current_trade_amount
+            
+            # IA também pode ajustar o valor
+            if hasattr(self, 'ai_optimizer'):
+                ai_amount = self.ai_optimizer.get_optimal_trade_amount()
+                if ai_amount < trade_amount:
+                    trade_amount = ai_amount
+                    print(f"🤖 IA ajustou valor para: {trade_amount:.6f} WETH")
             
             # Notificar início da compra
             await self.telegram_bot.send_notification(
@@ -479,12 +584,27 @@ class SniperBot:
                 token_address, amount_in, is_buy=True
             )
             
-            if not best_dex or best_price == 0:
-                print(f"{Fore.YELLOW}⚠️ Preço não confirmado - executando compra agressiva{Style.RESET_ALL}")
-                # Não cancelar mais - modo agressivo sempre tenta
-                if not best_dex:
-                    best_dex = "uniswap_v3"
-                    best_router = self.dex_handler.dexs['uniswap_v3']['router']
+            # Só cancelar se best_dex for None (erro real)
+            if not best_dex:
+                print(f"{Fore.RED}❌ Token sem liquidez - CANCELANDO COMPRA{Style.RESET_ALL}")
+                await self.telegram_bot.send_notification(
+                    f"❌ **Compra cancelada**\n"
+                    f"📛 {token_info['symbol']}\n"
+                    f"⚠️ Sem liquidez disponível",
+                    "high"
+                )
+                return None  # Cancelar compra
+            
+            # Se best_price é 1, é modo arriscado
+            if best_price == 1:
+                print(f"{Fore.YELLOW}⚠️ MODO ARRISCADO: Comprando sem liquidez confirmada!{Style.RESET_ALL}")
+                await self.telegram_bot.send_notification(
+                    f"⚠️ **MODO ARRISCADO**\n"
+                    f"📛 {token_info['symbol']}\n"
+                    f"💡 Tentando comprar mesmo sem liquidez\n"
+                    f"⚠️ Risco: transação pode falhar",
+                    "high"
+                )
             
             print(f"{Fore.CYAN}🎯 Melhor preço encontrado na {best_dex}{Style.RESET_ALL}")
             
@@ -503,24 +623,96 @@ class SniperBot:
             )
             
             if tx_hash:
-                self.trades_executed += 1
-                print(f"{Fore.GREEN}✅ Compra executada! TX: {tx_hash}{Style.RESET_ALL}")
+                print(f"{Fore.GREEN}✅ Compra enviada! TX: {tx_hash}{Style.RESET_ALL}")
+                print(f"{Fore.YELLOW}⏳ Aguardando confirmação da blockchain...{Style.RESET_ALL}")
                 
-                # Notificar via sistema em tempo real
-                await self.telegram_bot.send_trade_alert("BUY", token_address, trade_amount, best_price)
-                await self.telegram_bot.send_notification(
-                    f"TX Hash: {tx_hash[:10]}...{tx_hash[-10:]}", 
-                    "success"
-                )
+                # Aguardar confirmação
+                await asyncio.sleep(10)
                 
-                # Agendar venda
-                asyncio.create_task(self._schedule_sell_order(token_address, token_info, tx_hash))
+                # Verificar se a transação foi confirmada
+                try:
+                    buy_receipt = self.web3.eth.get_transaction_receipt(tx_hash)
+                    if buy_receipt and buy_receipt.status == 1:
+                        self.trades_executed += 1
+                        print(f"{Fore.GREEN}✅ Compra CONFIRMADA! TX: {tx_hash}{Style.RESET_ALL}")
+                        
+                        # Notificar via sistema em tempo real
+                        try:
+                            await self.telegram_bot.send_trade_alert(
+                                tx_hash, token_info['symbol'], "BUY", {"amount": trade_amount, "price": best_price}
+                            )
+                            await self.telegram_bot.send_notification(
+                                f"🟢 **COMPRA CONFIRMADA!**\n\n"
+                                f"📛 Token: {token_info['symbol']}\n"
+                                f"💰 Valor: {trade_amount:.6f} WETH\n"
+                                f"🔗 TX: `{tx_hash[:10]}...{tx_hash[-10:]}`\n"
+                                f"⏰ Data: {datetime.now().strftime('%H:%M:%S')}", 
+                                "high"
+                            )
+                            print(f"📱 Notificação de compra enviada!")
+                        except Exception as e:
+                            print(f"⚠️ Erro ao enviar notificação: {e}")
+                        
+                        # Agendar venda
+                        asyncio.create_task(self._schedule_sell_order(token_address, token_info, tx_hash))
+                    else:
+                        print(f"{Fore.RED}❌ Compra FALHOU na blockchain (Status: {buy_receipt.status if buy_receipt else 'N/A'}){Style.RESET_ALL}")
+                        await self.telegram_bot.send_notification(
+                            f"❌ **Compra FALHOU!**\n\n"
+                            f"📛 Token: {token_info['symbol']}\n"
+                            f"🔗 TX: `{tx_hash[:10]}...{tx_hash[-10:]}`\n"
+                            f"⚠️ Transação revertida\n"
+                            f"⏰ Data: {datetime.now().strftime('%H:%M:%S')}", 
+                            "high"
+                        )
+                except Exception as e:
+                    print(f"{Fore.RED}❌ Erro ao verificar transação: {e}{Style.RESET_ALL}")
                 
                 # Log da transação
                 if ENABLE_LOGGING:
                     self.logger.info(f"BUY - {token_info['symbol']} - Amount: {trade_amount} ETH - TX: {tx_hash}")
+                
+                # Reportar resultado para IA
+                try:
+                    result = TradeResult(
+                        token_symbol=token_info.get('symbol', 'UNKNOWN'),
+                        token_address=token_address,
+                        buy_price=trade_amount,
+                        sell_price=0,  # Ainda não vendeu
+                        profit_loss_percent=0,  # Ainda não realizado
+                        gas_spent=0.0001,  # Estimado
+                        timestamp=time.time(),
+                        score=token_info.get('score', 50),
+                        liquidity=token_info.get('liquidity', 0),
+                        holders=token_info.get('holders', 0),
+                        success=True
+                    )
+                    self.ai_learner.add_trade_result(result)
+                except Exception as ai_error:
+                    print(f"{Fore.YELLOW}⚠️ Erro ao reportar para IA: {ai_error}{Style.RESET_ALL}")
             else:
                 print(f"{Fore.RED}❌ Falha na execução da compra{Style.RESET_ALL}")
+                
+                # Reportar falha para IA
+                try:
+                    result = TradeResult(
+                        token_symbol=token_info.get('symbol', 'UNKNOWN'),
+                        token_address=token_address,
+                        buy_price=trade_amount,
+                        sell_price=0,
+                        profit_loss_percent=-100,  # Perda total
+                        gas_spent=0.0001,
+                        timestamp=time.time(),
+                        score=token_info.get('score', 50),
+                        liquidity=token_info.get('liquidity', 0),
+                        holders=token_info.get('holders', 0),
+                        success=False,
+                        failure_reason="Transaction failed"
+                    )
+                    self.ai_learner.add_trade_result(result)
+                except:
+                    pass
+                
                 await self.telegram_bot.send_notification(
                     f"❌ Falha na compra de {token_info['symbol']} - Verifique gas e liquidez", 
                     "high"
@@ -599,11 +791,9 @@ class SniperBot:
                 token_address, token_balance_wei, is_buy=False
             )
             
-            if not best_dex:
-                print(f"{Fore.YELLOW}⚠️ Preço não confirmado - executando venda agressiva{Style.RESET_ALL}")
-                # Não cancelar mais - modo agressivo sempre tenta
-                best_dex = "uniswap_v3"
-                best_router = self.dex_handler.dexs['uniswap_v3']['router']
+            if not best_dex or best_price == 0:
+                print(f"{Fore.RED}❌ Token sem liquidez para venda - CANCELANDO{Style.RESET_ALL}")
+                return None  # Cancelar venda
             
             await self.telegram_bot.send_notification(
                 f"🎯 **Executando venda!**\n"
@@ -620,16 +810,47 @@ class SniperBot:
             )
             
             if sell_tx_hash:
-                self.successful_trades += 1
-                print(f"{Fore.GREEN}✅ Venda executada! TX: {sell_tx_hash}{Style.RESET_ALL}")
+                print(f"{Fore.GREEN}✅ Venda enviada! TX: {sell_tx_hash}{Style.RESET_ALL}")
                 
-                # Notificar venda via Telegram
-                await self.telegram_bot.send_trade_notification(
-                    token_info['symbol'], "SELL", sell_tx_hash, token_balance, best_price
-                )
+                # Aguardar e verificar confirmação
+                await asyncio.sleep(10)
                 
-                # Calcular lucro
-                await self._calculate_profit(buy_tx_hash, sell_tx_hash)
+                try:
+                    sell_receipt = self.web3.eth.get_transaction_receipt(sell_tx_hash)
+                    if sell_receipt and sell_receipt.status == 1:
+                        self.successful_trades += 1
+                        print(f"{Fore.GREEN}✅ Venda CONFIRMADA! TX: {sell_tx_hash}{Style.RESET_ALL}")
+                        
+                        # Notificar venda via Telegram
+                        try:
+                            await self.telegram_bot.send_trade_alert(
+                                sell_tx_hash, token_info['symbol'], "SELL", {"amount": token_balance, "price": best_price}
+                            )
+                            await self.telegram_bot.send_notification(
+                                f"🔴 **VENDA CONFIRMADA!**\n\n"
+                                f"📛 Token: {token_info['symbol']}\n"
+                                f"💰 Saldo: {token_balance:.6f} tokens\n"
+                                f"🔗 TX: `{sell_tx_hash[:10]}...{sell_tx_hash[-10:]}`\n"
+                                f"⏰ Data: {datetime.now().strftime('%H:%M:%S')}", 
+                                "high"
+                            )
+                            print(f"📱 Notificação de venda enviada!")
+                        except Exception as e:
+                            print(f"⚠️ Erro ao enviar notificação de venda: {e}")
+                        
+                        # Calcular lucro
+                        await self._calculate_profit(buy_tx_hash, sell_tx_hash, token_info.get('symbol', 'TOKEN'))
+                    else:
+                        print(f"{Fore.RED}❌ Venda FALHOU na blockchain (Status: {sell_receipt.status if sell_receipt else 'N/A'}){Style.RESET_ALL}")
+                        await self.telegram_bot.send_notification(
+                            f"❌ **VENDA FALHOU!**\n\n"
+                            f"📛 Token: {token_info['symbol']}\n"
+                            f"🔗 TX: `{sell_tx_hash[:10]}...{sell_tx_hash[-10:]}`\n"
+                            f"⚠️ Transação revertida", 
+                            "high"
+                        )
+                except Exception as e:
+                    print(f"{Fore.RED}❌ Erro ao verificar venda: {e}{Style.RESET_ALL}")
                 
                 # Log da transação
                 if ENABLE_LOGGING:
@@ -669,29 +890,54 @@ class SniperBot:
             print(f"{Fore.RED}❌ Erro ao obter saldo do token: {str(e)}{Style.RESET_ALL}")
             return 0
     
-    async def _calculate_profit(self, buy_tx_hash: str, sell_tx_hash: str):
+    async def _calculate_profit(self, buy_tx_hash: str, sell_tx_hash: str, token_symbol: str = "TOKEN"):
         """Calcula lucro da operação"""
         try:
-            buy_receipt = self.web3.eth.get_transaction_receipt(buy_tx_hash)
-            sell_receipt = self.web3.eth.get_transaction_receipt(sell_tx_hash)
+            # Pequena pausa para garantir que as transações estão confirmadas
+            await asyncio.sleep(2)
             
-            buy_tx = self.web3.eth.get_transaction(buy_tx_hash)
-            sell_tx = self.web3.eth.get_transaction(sell_tx_hash)
+            try:
+                buy_receipt = self.web3.eth.get_transaction_receipt(buy_tx_hash)
+                sell_receipt = self.web3.eth.get_transaction_receipt(sell_tx_hash)
+                
+                buy_tx = self.web3.eth.get_transaction(buy_tx_hash)
+                sell_tx = self.web3.eth.get_transaction(sell_tx_hash)
+                
+                # Calcular custos de gas
+                buy_gas_cost = buy_receipt.gasUsed * buy_tx.gasPrice
+                sell_gas_cost = sell_receipt.gasUsed * sell_tx.gasPrice
+                total_gas_cost = self.web3.from_wei(buy_gas_cost + sell_gas_cost, 'ether')
+                
+            except Exception as e:
+                print(f"⚠️ Erro ao obter receipts: {e}")
+                total_gas_cost = 0.0015  # Estimativa
             
-            # Calcular custos de gas
-            buy_gas_cost = buy_receipt.gasUsed * buy_tx.gasPrice
-            sell_gas_cost = sell_receipt.gasUsed * sell_tx.gasPrice
-            total_gas_cost = self.web3.from_wei(buy_gas_cost + sell_gas_cost, 'ether')
+            # Obter saldos atuais
+            current_eth = float(self.web3.from_wei(self.web3.eth.get_balance(WALLET_ADDRESS), 'ether'))
+            current_weth = self._get_weth_balance_sync()
             
-            # Calcular lucro bruto (simplificado)
-            # Nota: Em implementação real, seria necessário analisar os logs dos eventos
-            gross_profit = 0.0  # Placeholder
-            net_profit = gross_profit - total_gas_cost
+            # Calcular lucro baseado na diferença de saldo
+            # (simplificado - considera saldo WETH antes e depois)
+            initial_total = 0.006854  # Saldo inicial estimado
+            current_total = current_eth + current_weth
+            profit = current_total - initial_total
             
-            self.total_profit += net_profit
+            self.total_profit += profit
             
-            print(f"{Fore.CYAN}💹 Lucro líquido: {net_profit:.6f} ETH{Style.RESET_ALL}")
-            print(f"{Fore.CYAN}💰 Lucro total acumulado: {self.total_profit:.6f} ETH{Style.RESET_ALL}")
+            # Notificação de LUCRO
+            emoji = "🟢" if profit >= 0 else "🔴"
+            await self.telegram_bot.send_notification(
+                f"{emoji} **LUCRO/STOP-LOSS!**\n\n"
+                f"📛 Token: {token_symbol}\n"
+                f"💰 Lucro: {profit:+.6f} ETH\n"
+                f"💰 Lucro total: {self.total_profit:+.6f} ETH\n"
+                f"⛽ Gas gasto: ~{total_gas_cost:.6f} ETH\n"
+                f"💵 Saldo atual: {current_total:.6f} ETH\n"
+                f"⏰ Data: {datetime.now().strftime('%H:%M:%S')}", 
+                "high"
+            )
+            
+            print(f"{Fore.CYAN}💹 Lucro: {profit:+.6f} ETH | Total: {self.total_profit:+.6f} ETH{Style.RESET_ALL}")
             
         except Exception as e:
             print(f"{Fore.RED}❌ Erro ao calcular lucro: {str(e)}{Style.RESET_ALL}")
@@ -705,7 +951,33 @@ class SniperBot:
         print(f"{Fore.YELLOW}📈 Trades executados: {self.trades_executed}{Style.RESET_ALL}")
         print(f"{Fore.YELLOW}✅ Trades bem-sucedidos: {self.successful_trades}{Style.RESET_ALL}")
         print(f"{Fore.YELLOW}💰 Lucro total: {self.total_profit:.6f} ETH{Style.RESET_ALL}")
-        print(f"{Fore.YELLOW}⚙️ Valor por trade: {TRADE_AMOUNT_WETH} ETH{Style.RESET_ALL}")
+        
+        # Obter parâmetros da IA
+        ai_params = self.ai_learner.get_current_params()
+        print(f"{Fore.CYAN}⚙️ Valor por trade (IA): {ai_params['trade_amount']:.6f} WETH{Style.RESET_ALL}")
+        
+        # Status da IA Auto-Aprendizado
+        print(f"{Fore.CYAN}{'='*50}")
+        print(f"🤖 IA AUTO-PROGRAMÁVEL")
+        print(f"{'='*50}{Style.RESET_ALL}")
+        print(f"{Fore.YELLOW}🎯 Win Rate: {self.ai_learner.get_win_rate()*100:.1f}%{Style.RESET_ALL}")
+        print(f"{Fore.YELLOW}⛽ Gas multiplier: {ai_params['gas_multiplier']:.1f}x{Style.RESET_ALL}")
+        print(f"{Fore.YELLOW}📉 Slippage: {ai_params['slippage']}%{Style.RESET_ALL}")
+        print(f"{Fore.YELLOW}🎯 Score mínimo: {ai_params['min_score']}{Style.RESET_ALL}")
+        print(f"{Fore.YELLOW}🛑 Stop loss: {ai_params['stop_loss']}%{Style.RESET_ALL}")
+        print(f"{Fore.YELLOW}🎯 Target profit: {ai_params['target_profit']}%{Style.RESET_ALL}")
+        
+        # Status da IA
+        if hasattr(self, 'ai_optimizer'):
+            ai_status = self.ai_optimizer.get_status()
+            print(f"{Fore.CYAN}{'='*50}")
+            print(f"🤖 IA OTIMIZADOR")
+            print(f"{'='*50}{Style.RESET_ALL}")
+            print(f"{Fore.YELLOW}🎯 Win Rate: {ai_status['win_rate']}{Style.RESET_ALL}")
+            print(f"{Fore.YELLOW}📊 Trades: {ai_status['trades']}{Style.RESET_ALL}")
+            print(f"{Fore.YELLOW}🔥 Sequência atual: {ai_status['current_streak']}{Style.RESET_ALL}")
+            print(f"{Fore.YELLOW}💵 Saldo IA: {ai_status['balance']}{Style.RESET_ALL}")
+            print(f"{Fore.YELLOW}📈 {ai_status['recommendation']}{Style.RESET_ALL}")
         
         if self.web3:
             # Mostrar saldo ETH (para gas)

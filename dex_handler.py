@@ -21,7 +21,17 @@ class DEXHandler:
         self._init_backup_rpc()
     
     def _init_backup_rpc(self):
-        """Inicializa RPC backup"""
+        """Inicializa múltiplos RPCs para failover"""
+        from config import BASE_RPC_BACKUP, BASE_RPC_3, BASE_RPC_4
+        
+        rpcs = [
+            ('principal', BASE_RPC_URL),
+            ('backup', BASE_RPC_BACKUP),
+            ('rpc3', BASE_RPC_3),
+            ('rpc4', BASE_RPC_4)
+        ]
+        
+        # Manter apenas o primeiro (principal) como web3 principal
         try:
             self.backup_web3 = Web3(Web3.HTTPProvider(BASE_RPC_BACKUP))
             if self.backup_web3.is_connected():
@@ -32,6 +42,10 @@ class DEXHandler:
         except Exception as e:
             print(f"{Fore.YELLOW}⚠️ Erro ao conectar RPC backup: {str(e)}{Style.RESET_ALL}")
             self.backup_web3 = None
+        
+        # Armazenar lista de RPCs alternativos
+        self.rpc_list = [BASE_RPC_BACKUP, BASE_RPC_3, BASE_RPC_4]
+        self.current_rpc_index = 0
     
     def _get_web3_instance(self):
         """Retorna instância Web3 disponível (principal ou backup)"""
@@ -41,13 +55,27 @@ class DEXHandler:
             print(f"{Fore.YELLOW}🔄 Usando RPC backup{Style.RESET_ALL}")
             return self.backup_web3
         else:
+            # Tentar outros RPCs
+            for rpc in self.rpc_list:
+                try:
+                    temp_web3 = Web3(Web3.HTTPProvider(rpc))
+                    if temp_web3.is_connected():
+                        print(f"{Fore.YELLOW}🔄 Usando RPC alternativo: {rpc[:30]}...{Style.RESET_ALL}")
+                        self.backup_web3 = temp_web3
+                        return temp_web3
+                except:
+                    continue
             return self.web3  # Fallback para principal mesmo se não conectado
     
-    def _get_cached_balance(self, cache_key: str):
+    def _get_cached_balance(self, cache_key: str, force_refresh: bool = False):
         """Obtém saldo do cache se válido"""
+        if force_refresh:
+            return None  # Force refresh
+            
         if cache_key in self.balance_cache:
             cached_data = self.balance_cache[cache_key]
-            if time.time() - cached_data['timestamp'] < self.cache_timeout:
+            # Cache válido apenas por 10 segundos (reduzido para evitar problemas)
+            if time.time() - cached_data['timestamp'] < 10:
                 return cached_data['balance']
         return None
     
@@ -164,13 +192,11 @@ class DEXHandler:
         """Obtém saldo WETH da carteira com cache e RPC backup"""
         cache_key = f"weth_balance_{WALLET_ADDRESS}"
         
-        # Verificar cache primeiro
+        # SEMPRE tentar obter saldo fresco (cache curto)
         cached_balance = self._get_cached_balance(cache_key)
-        if cached_balance is not None:
-            return cached_balance
         
         # Tentar obter saldo com rate limiting
-        for attempt in range(2):  # Máximo 2 tentativas
+        for attempt in range(5):  # Máximo 5 tentativas
             try:
                 await BASE_RPC_LIMITER.acquire()
                 
@@ -199,15 +225,25 @@ class DEXHandler:
             except Exception as e:
                 if "429" in str(e) or "Too Many Requests" in str(e):
                     BASE_RPC_LIMITER.handle_429_error()
-                    if attempt == 0:
-                        print(f"⚠️ Rate limit - tentativa {attempt + 1}/2")
-                        await asyncio.sleep(2)  # Esperar 2 segundos antes de tentar novamente
+                    if attempt < 4:
+                        print(f"⚠️ Rate limit - tentativa {attempt + 1}/5, aguardando...")
+                        await asyncio.sleep(5)  # Esperar mais
                         continue
                 
-                print(f"❌ Erro ao obter saldo WETH: {e}")
-                if attempt == 1:  # Última tentativa
+                print(f"❌ Erro ao obter saldo WETH: {str(e)[:50]}")
+                if attempt == 4:  # Última tentativa
+                    # Usar cache mesmo que expirou
+                    cached = self._get_cached_balance(cache_key)
+                    if cached is not None:
+                        print(f"⚠️ Usando saldo em cache: {cached:.6f} WETH")
+                        return cached
                     return 0.0
                     
+        # Se tudo falhar, tentar usar cache
+        cached = self._get_cached_balance(cache_key)
+        if cached is not None:
+            print(f"⚠️ Usando saldo em cache após falhas: {cached:.6f} WETH")
+            return cached
         return 0.0
     
     async def convert_weth_to_eth_if_needed(self, min_eth_needed: float = 0.00001) -> bool:
@@ -240,7 +276,7 @@ class DEXHandler:
                 
                 # Calcular exatamente o quanto precisa para gas + conversão
                 # Usar gas price mínimo absoluto possível
-                gas_price = web3_instance.to_wei(0.001, 'gwei')  # 0.001 gwei =最小
+                gas_price = web3_instance.to_wei(0.5, 'gwei')  # 0.5 gwei = mais seguro
                 gas_limit = 25000  # Gas mínimo para withdraw
                 gas_cost_eth = float(web3_instance.from_wei(gas_price * gas_limit, 'ether'))
                 
@@ -342,7 +378,7 @@ class DEXHandler:
             withdraw_tx = weth_contract.functions.withdraw(withdraw_amount).build_transaction({
                 'from': WALLET_ADDRESS,
                 'gas': 25000,  # Gas MÍNIMO
-                'gasPrice': web3_instance.to_wei(0.05, 'gwei'),  # Gas price ULTRA baixo
+                'gasPrice': web3_instance.to_wei(0.5, 'gwei'),  # SEMPRE baixo
                 'nonce': web3_instance.eth.get_transaction_count(WALLET_ADDRESS)
             })
             
@@ -394,7 +430,7 @@ class DEXHandler:
                 ).build_transaction({
                     'from': WALLET_ADDRESS,
                     'gas': 200000,
-                    'gasPrice': web3_instance.to_wei(0.1, 'gwei'),  # Gas ultra baixo
+                'gasPrice': web3_instance.to_wei(0.5, 'gwei'),  # SEMPRE baixo
                     'nonce': web3_instance.eth.get_transaction_count(WALLET_ADDRESS)
                 })
             else:
@@ -411,7 +447,7 @@ class DEXHandler:
                 ).build_transaction({
                     'from': WALLET_ADDRESS,
                     'gas': 200000,
-                    'gasPrice': web3_instance.to_wei(0.1, 'gwei'),
+                'gasPrice': web3_instance.to_wei(0.5, 'gwei'),  # SEMPRE baixo
                     'nonce': web3_instance.eth.get_transaction_count(WALLET_ADDRESS)
                 })
             
@@ -493,23 +529,19 @@ class DEXHandler:
         best_router = None
         successful_queries = 0
         
-        # Tentar múltiplos paths para encontrar liquidez
-        paths_to_try = []
-        
+        # Tokens novos só têm par direto com WETH - focar nisso!
         if is_buy:
-            # Para compra: WETH -> Token
+            # Para compra: WETH -> Token (apenas path direto!)
             paths_to_try = [
                 [WETH_ADDRESS, token_address],  # Direto
-                [WETH_ADDRESS, USDC_ADDRESS, token_address],  # Via USDC
-                [WETH_ADDRESS, USDT_ADDRESS, token_address],  # Via USDT
             ]
         else:
-            # Para venda: Token -> WETH
+            # Para venda: Token -> WETH (apenas path direto!)
             paths_to_try = [
                 [token_address, WETH_ADDRESS],  # Direto
-                [token_address, USDC_ADDRESS, WETH_ADDRESS],  # Via USDC
-                [token_address, USDT_ADDRESS, WETH_ADDRESS],  # Via USDT
             ]
+        
+        print(f"🔍 Verificando liquidez para {token_address[:10]}... (compra={is_buy})")
         
         for dex_key, dex_info in self.dexs.items():
             try:
@@ -520,7 +552,7 @@ class DEXHandler:
                     abi=self.get_router_abi()
                 )
                 
-                # Tentar diferentes paths até encontrar liquidez
+                # Tentar apenas o path direto primeiro
                 for path in paths_to_try:
                     try:
                         amounts = router_contract.functions.getAmountsOut(amount_in, path).call()
@@ -543,30 +575,34 @@ class DEXHandler:
                         # Se este path falhou, tentar o próximo
                         continue
                 
-                # Se chegou aqui sem break, não encontrou liquidez em nenhum path
-                if successful_queries == 0 or best_dex != dex_info['name']:
-                    print(f"⚠️ {dex_info['name']}: Sem liquidez em nenhum path")
+                # Se chegou aqui sem break, não encontrou liquidez
+                if not best_dex or best_dex != dex_info['name']:
+                    print(f"⚠️ {dex_info['name']}: Sem liquidez")
                 
             except Exception as e:
                 error_msg = str(e)
                 if "429" in error_msg or "Too Many Requests" in error_msg:
                     BASE_RPC_LIMITER.handle_429_error()
                     print(f"🚫 Rate limit 429 detectado. Backoff: {BASE_RPC_LIMITER.current_backoff}s")
-                    print(f"⚠️ Rate limit em {dex_info['name']}, aguardando {BASE_RPC_LIMITER.current_backoff:.1f}s...")
-                    await asyncio.sleep(min(BASE_RPC_LIMITER.current_backoff, 3))  # Máximo 3s
+                    await asyncio.sleep(min(BASE_RPC_LIMITER.current_backoff, 3))
                 elif "execution reverted" in error_msg.lower():
-                    print(f"⚠️ {dex_info['name']}: Sem par de trading para este token")
-                else:
-                    print(f"⚠️ {dex_info['name']}: {error_msg[:50]}...")
+                    print(f"⚠️ {dex_info['name']}: Sem par de trading")
                 continue
         
+        # Se não encontrou liquidez, TENTAR COMPRAR MESMO ASSIM (modo arriscado para tokens novos)
         if successful_queries == 0:
-            print("⚠️ Nenhuma DEX retornou preço válido - assumindo token muito novo")
-            # Para tokens muito novos, assumir que terão liquidez em breve
-            # Retornar valores padrão para permitir tentativa de compra
-            print("🎯 MODO AGRESSIVO: Tentando compra mesmo sem preço confirmado")
-            return "uniswap_v3", amount_in, self.dexs['uniswap_v3']['router']
+            print("⚠️ Nenhuma liquidez encontrada - TENTANDO MESMO ASSIM (modo arriscado)")
+            # Usar a primeira DEX disponível como fallback
+            first_dex = list(self.dexs.values())[0] if self.dexs else None
+            if first_dex:
+                print(f"⚠️ Tentando com {first_dex['name']} mesmo sem liquidez")
+                best_dex = first_dex['name']
+                best_router = first_dex['router']
+                best_price = 1  # Valor mínimo
+                return best_dex, best_price, best_router
+            return None, None, None
             
+        print(f"✅ Liquidez encontrada! Melhor: {best_dex}")
         return best_dex, best_price, best_router
     
     async def execute_swap(self, token_address: str, amount_in: int, router_address: str, 
@@ -642,6 +678,16 @@ class DEXHandler:
                 # Para tokens muito novos, usar valor mínimo muito baixo
                 amount_out_min = 1  # Aceitar qualquer quantidade de tokens
             
+            # Gas price dinâmico - buscar preço atual do mercado
+            try:
+                current_gas_price = web3_instance.eth.gas_price
+                # Mínimo 0.1 gwei, adicionar 20% para garantir confirmação
+                gas_price = int(max(current_gas_price, web3_instance.to_wei(0.1, 'gwei')) * 1.2)
+            except Exception:
+                # Fallback para 0.5 gwei se falhar
+                gas_price = web3_instance.to_wei(0.5, 'gwei')
+            print(f"⛽ Gas price: {web3_instance.from_wei(gas_price, 'gwei'):.3f} gwei (dinâmico)")
+            
             # Preparar transação
             if is_buy:
                 # Comprar token com WETH (não ETH direto)
@@ -651,24 +697,19 @@ class DEXHandler:
                     {"constant": True, "inputs": [{"name": "_owner", "type": "address"}, {"name": "_spender", "type": "address"}], "name": "allowance", "outputs": [{"name": "", "type": "uint256"}], "type": "function"}
                 ]
                 
-                weth_contract = self.web3.eth.contract(address=WETH_ADDRESS, abi=weth_abi)
+                weth_contract = web3_instance.eth.contract(address=WETH_ADDRESS, abi=weth_abi)
                 
                 # Verificar allowance atual
                 current_allowance = weth_contract.functions.allowance(WALLET_ADDRESS, router_address).call()
                 
                 if current_allowance < amount_in:
                     # Aprovar WETH para o router
-                    # Usar gas mais conservador para saldos baixos
-                    eth_balance = self.web3.eth.get_balance(WALLET_ADDRESS)
-                    eth_balance_eth = float(self.web3.from_wei(eth_balance, 'ether'))
+                    # SEMPRE usar gas baixo
+                    gas_limit = 50000
+                    gas_price = web3_instance.to_wei(0.5, 'gwei')  # SEMPRE mínimo
                     
-                    # Ajustar gas baseado no saldo disponível
-                    if eth_balance_eth < 0.0001:  # Saldo muito baixo
-                        gas_limit = 50000
-                        gas_price = self.web3.to_wei(1, 'gwei')  # Gas price muito baixo
-                    else:
-                        gas_limit = 100000
-                        gas_price = self.web3.to_wei(MAX_GAS_PRICE, 'gwei')
+                    # Usar nonce correto
+                    nonce = web3_instance.eth.get_transaction_count(WALLET_ADDRESS)
                     
                     approve_tx = weth_contract.functions.approve(
                         router_address, 
@@ -677,18 +718,28 @@ class DEXHandler:
                         'from': WALLET_ADDRESS,
                         'gas': gas_limit,
                         'gasPrice': gas_price,
-                        'nonce': self.web3.eth.get_transaction_count(WALLET_ADDRESS)
+                        'nonce': nonce
                     })
                     
                     # Assinar e enviar aprovação
-                    signed_approve = self.web3.eth.account.sign_transaction(approve_tx, PRIVATE_KEY)
-                    approve_hash = self.web3.eth.send_raw_transaction(signed_approve.rawTransaction)
+                    signed_approve = web3_instance.eth.account.sign_transaction(approve_tx, PRIVATE_KEY)
+                    approve_hash = web3_instance.eth.send_raw_transaction(signed_approve.rawTransaction)
                     print(f"🔓 Aprovação WETH enviada: {approve_hash.hex()}")
                     
                     # Aguardar confirmação da aprovação
-                    time.sleep(3)
+                    time.sleep(2)
+                else:
+                    # SEMPRE usar gas baixo
+                    gas_limit = 50000
+                    gas_price = web3_instance.to_wei(0.5, 'gwei')
                 
                 # Agora fazer o swap usando swapExactTokensForTokens
+                # Usar nonce correto
+                nonce = web3_instance.eth.get_transaction_count(WALLET_ADDRESS)
+                
+                # SEMPRE gas baixo
+                gas_price = web3_instance.to_wei(0.5, 'gwei')
+                
                 transaction = router_contract.functions.swapExactTokensForTokens(
                     amount_in,
                     amount_out_min,
@@ -697,9 +748,9 @@ class DEXHandler:
                     deadline
                 ).build_transaction({
                     'from': WALLET_ADDRESS,
-                    'gas': gas_limit * 2,  # Usar o mesmo gas ajustado
-                    'gasPrice': gas_price,
-                    'nonce': self.web3.eth.get_transaction_count(WALLET_ADDRESS)
+                    'gas': 150000,  # Reduzido para Base
+                    'gasPrice': web3_instance.to_wei(0.5, 'gwei'),  # SEMPRE baixo
+                    'nonce': nonce
                 })
             else:
                 # Vender token por WETH
@@ -709,7 +760,7 @@ class DEXHandler:
                     {"constant": True, "inputs": [{"name": "_owner", "type": "address"}, {"name": "_spender", "type": "address"}], "name": "allowance", "outputs": [{"name": "", "type": "uint256"}], "type": "function"}
                 ]
                 
-                token_contract = self.web3.eth.contract(address=token_address, abi=token_abi)
+                token_contract = web3_instance.eth.contract(address=token_address, abi=token_abi)
                 
                 # Verificar allowance atual
                 current_allowance = token_contract.functions.allowance(WALLET_ADDRESS, router_address).call()
@@ -722,13 +773,13 @@ class DEXHandler:
                     ).build_transaction({
                         'from': WALLET_ADDRESS,
                         'gas': 100000,
-                        'gasPrice': self.web3.to_wei(MAX_GAS_PRICE, 'gwei'),
-                        'nonce': self.web3.eth.get_transaction_count(WALLET_ADDRESS)
+                        'gasPrice': web3_instance.to_wei(0.5, 'gwei'),  # SEMPRE baixo
+                        'nonce': web3_instance.eth.get_transaction_count(WALLET_ADDRESS)
                     })
                     
                     # Assinar e enviar aprovação
-                    signed_approve = self.web3.eth.account.sign_transaction(approve_tx, PRIVATE_KEY)
-                    approve_hash = self.web3.eth.send_raw_transaction(signed_approve.rawTransaction)
+                    signed_approve = web3_instance.eth.account.sign_transaction(approve_tx, PRIVATE_KEY)
+                    approve_hash = web3_instance.eth.send_raw_transaction(signed_approve.rawTransaction)
                     print(f"🔓 Aprovação token enviada: {approve_hash.hex()}")
                     
                     # Aguardar confirmação da aprovação
@@ -744,30 +795,49 @@ class DEXHandler:
                 ).build_transaction({
                     'from': WALLET_ADDRESS,
                     'gas': DEFAULT_GAS_LIMIT,
-                    'gasPrice': self.web3.to_wei(MAX_GAS_PRICE, 'gwei'),
-                    'nonce': self.web3.eth.get_transaction_count(WALLET_ADDRESS)
+                    'gasPrice': web3_instance.to_wei(0.5, 'gwei'),  # SEMPRE baixo
+                    'nonce': web3_instance.eth.get_transaction_count(WALLET_ADDRESS)
                 })
             
             # Assinar e enviar transação com retry logic
-            max_retries = 3
+            max_retries = 5
             for attempt in range(max_retries):
                 try:
-                    # Atualizar nonce para cada tentativa
-                    transaction['nonce'] = self.web3.eth.get_transaction_count(WALLET_ADDRESS)
+                    # Verificar rate limit e esperar se necessário
+                    error_msg = ""
+                    try:
+                        # Tentar obter nonce primeiro para verificar conexão
+                        nonce = web3_instance.eth.get_transaction_count(WALLET_ADDRESS)
+                    except Exception as conn_error:
+                        error_msg = str(conn_error)
+                        if "429" in error_msg or "Too Many Requests" in error_msg:
+                            print(f"🚫 Rate limit detectado, aguardando...")
+                            await asyncio.sleep(5)  # Esperar 5 segundos
+                            # Tentar com backup RPC
+                            if self.backup_web3:
+                                print(f"🔄 Tentando com RPC backup...")
+                                web3_instance = self.backup_web3
+                            continue
+                        raise
                     
-                    signed_txn = self.web3.eth.account.sign_transaction(transaction, PRIVATE_KEY)
-                    tx_hash = self.web3.eth.send_raw_transaction(signed_txn.rawTransaction)
+                    # Atualizar nonce para cada tentativa
+                    transaction['nonce'] = nonce
+                    
+                    print(f"📝 Nonce: {nonce}, Gas: {transaction.get('gas', 'default')}, GasPrice: {web3_instance.from_wei(transaction.get('gasPrice', 0), 'gwei')} gwei")
+                    
+                    signed_txn = web3_instance.eth.account.sign_transaction(transaction, PRIVATE_KEY)
+                    tx_hash = web3_instance.eth.send_raw_transaction(signed_txn.rawTransaction)
                     
                     print(f"🚀 Transação enviada: {tx_hash.hex()}")
                     
                     # Aguardar confirmação básica
                     try:
-                        receipt = self.web3.eth.wait_for_transaction_receipt(tx_hash, timeout=30)
+                        receipt = web3_instance.eth.wait_for_transaction_receipt(tx_hash, timeout=30)
                         if receipt.status == 1:
                             print(f"✅ Transação confirmada com sucesso!")
                             return tx_hash.hex()
                         else:
-                            print(f"❌ Transação falhou na blockchain")
+                            print(f"❌ Transação falhou na blockchain - Status: {receipt.status}")
                             return None
                     except Exception as wait_error:
                         print(f"⚠️ Timeout aguardando confirmação: {wait_error}")
@@ -775,13 +845,23 @@ class DEXHandler:
                         return tx_hash.hex()
                     
                 except Exception as send_error:
-                    print(f"❌ Tentativa {attempt + 1}/{max_retries} falhou: {str(send_error)}")
+                    error_str = str(send_error)
+                    print(f"❌ Tentativa {attempt + 1}/{max_retries} falhou: {error_str[:80]}")
+                    
+                    # Tratar rate limit especificamente
+                    if "429" in error_str or "Too Many Requests" in error_str:
+                        print(f"🚫 Rate limit 429 - aguardando 10s...")
+                        await asyncio.sleep(10)
+                        
+                        # Tentar com RPC backup
+                        if self.backup_web3:
+                            print(f"🔄 Mudando para RPC backup...")
+                            web3_instance = self.backup_web3
+                        continue
+                    
                     if attempt < max_retries - 1:
                         # Aguardar antes da próxima tentativa
-                        await asyncio.sleep(2)
-                        # Aumentar gas price para próxima tentativa
-                        if 'gasPrice' in transaction:
-                            transaction['gasPrice'] = int(transaction['gasPrice'] * 1.2)
+                        await asyncio.sleep(3)
                     else:
                         print(f"❌ Todas as tentativas falharam")
                         return None
@@ -901,7 +981,7 @@ class DEXHandler:
             ).build_transaction({
                 'from': WALLET_ADDRESS,
                 'gas': 100000,
-                'gasPrice': self.web3.to_wei(MAX_GAS_PRICE, 'gwei'),
+                'gasPrice': self.web3.to_wei(0.5, 'gwei'),  # SEMPRE baixo
                 'nonce': self.web3.eth.get_transaction_count(WALLET_ADDRESS)
             })
             
@@ -979,3 +1059,106 @@ class DEXHandler:
             print(f"⚠️ Não foi possível estimar gas: {e}")
             # Retornar valor padrão
             return DEFAULT_GAS_LIMIT
+
+    # ============================================
+    # FUNÇÃO PARA CONVERTER ETH PARA WETH
+    # ============================================
+    
+    def wrap_eth_to_weth(self, amount_eth: float = None) -> bool:
+        """
+        Converte ETH para WETH (wrapped ETH)
+        Isso é necessário porque trades na Uniswap usam WETH
+        """
+        try:
+            web3 = self._get_web3_instance()
+            
+            # Obter saldo atual de ETH
+            eth_balance = web3.eth.get_balance(WALLET_ADDRESS)
+            eth_balance_eth = float(web3.from_wei(eth_balance, 'ether'))
+            
+            # Se não especificar amount, usar todo ETH menos gas
+            if amount_eth is None:
+                # Deixar 0.003 ETH para gas e converter o resto
+                gas_reserve = 0.003
+                amount_eth = max(0, eth_balance_eth - gas_reserve)
+            
+            if amount_eth <= 0:
+                print("⚠️ ETH insuficiente para converter para WETH")
+                return False
+            
+            # Converter para Wei
+            amount_wei = web3.to_wei(amount_eth, 'ether')
+            
+            # Obter saldo WETH atual
+            weth_contract = web3.eth.contract(
+                address=WETH_ADDRESS,
+                abi=self._get_weth_abi()
+            )
+            weth_balance_before = weth_contract.functions.balanceOf(WALLET_ADDRESS).call()
+            
+            # Construir transação
+            nonce = web3.eth.get_transaction_count(WALLET_ADDRESS)
+            # SEMPRE usar gas price baixo e fixo
+            gas_price = web3.to_wei(0.5, 'gwei')
+            
+            tx = {
+                'from': WALLET_ADDRESS,
+                'to': WETH_ADDRESS,
+                'value': amount_wei,
+                'gas': 85000,  # Reduzido para Base
+                'gasPrice': gas_price,
+                'nonce': nonce,
+                'chainId': 8453
+            }
+            
+            # Assinar transação
+            private_key = os.getenv('PRIVATE_KEY')
+            signed_tx = web3.eth.account.sign_transaction(tx, private_key)
+            
+            # Enviar transação
+            tx_hash = web3.eth.send_raw_transaction(signed_tx.raw_transaction)
+            tx_hash_hex = web3.to_hex(tx_hash)
+            
+            print(f"📤 Transação de wrap ETH enviada: {tx_hash_hex}")
+            print(f"   Convertendo {amount_eth} ETH para WETH...")
+            
+            # Aguidar confirmação
+            receipt = web3.eth.wait_for_transaction_receipt(tx_hash, timeout=120)
+            
+            if receipt['status'] == 1:
+                weth_balance_after = weth_contract.functions.balanceOf(WALLET_ADDRESS).call()
+                weth_received = float(web3.from_wei(weth_balance_after - weth_balance_before, 'ether'))
+                print(f"✅ Sucesso! Convertido {weth_received:.6f} WETH")
+                return True
+            else:
+                print("❌ Transação falhou!")
+                return False
+                
+        except Exception as e:
+            print(f"❌ Erro ao converter ETH para WETH: {e}")
+            return False
+    
+    def _get_weth_abi(self):
+        """Retorna ABI do contrato WETH"""
+        return [
+            {
+                "constant": True,
+                "inputs": [{"name": "_owner", "type": "address"}],
+                "name": "balanceOf",
+                "outputs": [{"name": "balance", "type": "uint256"}],
+                "type": "function"
+            },
+            {
+                "name": "deposit",
+                "type": "function",
+                "inputs": [],
+                "outputs": [],
+                "stateMutability": "payable"
+            },
+            {
+                "name": "withdraw",
+                "type": "function",
+                "inputs": [{"name": "wad", "type": "uint256"}],
+                "outputs": []
+            }
+        ]
