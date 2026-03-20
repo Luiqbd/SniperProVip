@@ -201,9 +201,9 @@ Use os botões do menu para 控制o rápida.
             eth_balance_wei = web3.eth.get_balance(WALLET_ADDRESS)
             eth_balance = float(web3.from_wei(eth_balance_wei, 'ether'))
             
-            # Saldo WETH
+            # Saldo ETH
             weth_contract = web3.eth.contract(
-                address=WETH_ADDRESS,
+                address=ETH_ADDRESS,
                 abi=[{
                     "constant": True,
                     "inputs": [{"name": "_owner", "type": "address"}],
@@ -212,17 +212,17 @@ Use os botões do menu para 控制o rápida.
                     "type": "function"
                 }]
             )
-            weth_balance_wei = weth_contract.functions.balanceOf(WALLET_ADDRESS).call()
-            weth_balance = float(web3.from_wei(weth_balance_wei, 'ether'))
+            eth_balance_wei = weth_contract.functions.balanceOf(WALLET_ADDRESS).call()
+            eth_balance = float(web3.from_wei(eth_balance_wei, 'ether'))
             
             # Saldo total
-            total_eth = eth_balance + weth_balance
+            total_eth = eth_balance + eth_balance
             
             text = f"""
 <b>💰 SALDOS DA CARTEIRA</b>
 
 <b>ETH (Gas):</b> {eth_balance:.6f} ETH
-<b>WETH (Trading):</b> {weth_balance:.6f} WETH
+<b>ETH (Trading):</b> {eth_balance:.6f} ETH
 
 <b>Total:</b> {total_eth:.6f} ETH
 
@@ -377,7 +377,7 @@ Use os botões do menu para 控制o rápida.
 <b>Rede:</b> Base Network (8453)
 
 <b>Trading:</b>
-• Valor por trade: {TRADE_AMOUNT_WETH} WETH
+• Valor por trade: {TRADE_AMOUNT_ETH} ETH
 • Slippage: {SLIPPAGE_TOLERANCE}%
 • Lucro alvo: {TARGET_PROFIT_PERCENTAGE}%
 
@@ -534,7 +534,7 @@ Use os botões do menu para 控制o rápida.
 <b>Sucessos:</b> {status_data.get('successful_trades', 0)}
 <b>Lucro:</b> {status_data.get('total_profit', '0')} ETH
 <b>ETH:</b> {status_data.get('eth_balance', '0')} ETH
-<b>WETH:</b> {status_data.get('weth_balance', '0')} WETH
+<b>ETH:</b> {status_data.get('eth_balance', '0')} ETH
 """
         
         keyboard = self.get_status_keyboard()

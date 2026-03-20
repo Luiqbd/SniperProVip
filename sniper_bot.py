@@ -33,18 +33,18 @@ class SniperBot:
         
         # Sistema de trading inteligente com crescimento automático
         self.auto_mode = True
-        self.current_trade_amount = TRADE_AMOUNT_WETH
+        self.current_trade_amount = TRADE_AMOUNT_ETH
         self.dynamic_strategy = True
         self.profit_reinvestment = True
-        self.initial_balance = INITIAL_WETH_BALANCE
+        self.initial_balance = INITIAL_ETH_BALANCE
         self.balance_history = []
         self.profit_history = []
         self.smart_scaling = SMART_SCALING_ENABLED
         self.last_balance_check = 0
         
-        # Cache para saldos (evitar rate limit)
-        self._weth_balance_cache = 0.0
-        self._weth_balance_time = 0
+        # Cache para saldos (evitar rate limit) - agora ETH nativo
+        self._eth_balance_cache = 0.0
+        self._eth_balance_time = 0
         
         # Estratégia agressiva para crescimento rápido
         self.aggressive_strategy = None
@@ -197,75 +197,57 @@ class SniperBot:
             self.ai_predictor = AIPredictor()
             print(f"{Fore.CYAN}🎯 IA Preditiva ativada - Foco em lucros grandes!{Style.RESET_ALL}")
             
-            # Verificar saldo ETH
+            # Verificar saldo ETH nativo (agora usado diretamente para trading)
             balance = self.web3.eth.get_balance(WALLET_ADDRESS)
             balance_eth = float(self.web3.from_wei(balance, 'ether'))
             
             print(f"{Fore.YELLOW}💰 Saldo ETH: {balance_eth:.6f} ETH{Style.RESET_ALL}")
             
-            # Verificar saldo WETH (versão síncrona para inicialização)
-            weth_balance = self._get_weth_balance_sync()
-            print(f"{Fore.YELLOW}💰 Saldo WETH: {weth_balance:.6f} WETH{Style.RESET_ALL}")
-            
-            # ============================================
-            # AUTOMATICAMENTE CONVERTER ETH PARA WETH SE NECESSÁRIO
-            # ============================================
-            if weth_balance < TRADE_AMOUNT_WETH and balance_eth > 0.003:
-                print(f"{Fore.CYAN}🔄 Convertendo ETH para WETH...{Style.RESET_ALL}")
-                try:
-                    # Usar dex_handler para fazer o wrap (síncrono)
-                    if self.dex_handler:
-                        result = self.dex_handler.wrap_eth_to_weth()
-                        if result:
-                            # Atualizar saldo WETH após conversão
-                            weth_balance = self._get_weth_balance_sync()
-                            print(f"{Fore.GREEN}✅ WETH atualizado: {weth_balance:.6f}{Style.RESET_ALL}")
-                except Exception as wrap_error:
-                    print(f"{Fore.RED}❌ Erro ao converter ETH para WETH: {wrap_error}{Style.RESET_ALL}")
+            # Agora usamos ETH nativo diretamente - não precisa mais de ETH!
+            eth_balance = balance_eth
             
             # Log de saldos
             print(f"💰 Saldos verificados:")
-            print(f"⛽ ETH (Gas): {balance_eth:.6f}")
-            print(f"💎 WETH (Trading): {weth_balance:.6f}")
-            print(f"📊 Total: {balance_eth + weth_balance:.6f} ETH")
+            print(f"⛽ ETH (Gas + Trading): {eth_balance:.6f}")
+            print(f"📊 Total: {eth_balance:.6f} ETH")
             
             # Calcular saldo total disponível
-            total_balance = balance_eth + weth_balance
+            total_balance = eth_balance
             print(f"{Fore.CYAN}💰 Saldo total disponível: {total_balance:.6f} ETH{Style.RESET_ALL}")
             
-            # Verificar se tem WETH suficiente para trading e ETH para gas
+            # Verificar se tem ETH suficiente para trading e gas
             min_eth_for_gas = 0.000001  # Mínimo ETH para gas (mais flexível)
             
             # Calcular quantos trades são possíveis
-            possible_trades = int(weth_balance / TRADE_AMOUNT_WETH) if weth_balance > 0 else 0
+            possible_trades = int(eth_balance / TRADE_AMOUNT_ETH) if eth_balance > 0 else 0
             
-            if weth_balance >= TRADE_AMOUNT_WETH:
+            if eth_balance >= TRADE_AMOUNT_ETH:
                 print(f"{Fore.GREEN}✅ Saldo otimizado para trading!{Style.RESET_ALL}")
-                print(f"{Fore.GREEN}   WETH disponível: {weth_balance:.6f}{Style.RESET_ALL}")
-                print(f"{Fore.GREEN}   Valor por trade: {TRADE_AMOUNT_WETH:.6f} WETH{Style.RESET_ALL}")
+                print(f"{Fore.GREEN}   ETH disponível: {eth_balance:.6f}{Style.RESET_ALL}")
+                print(f"{Fore.GREEN}   Valor por trade: {TRADE_AMOUNT_ETH:.6f} ETH{Style.RESET_ALL}")
                 print(f"{Fore.GREEN}   Trades possíveis: {possible_trades} operações{Style.RESET_ALL}")
-                if balance_eth >= min_eth_for_gas:
-                    print(f"{Fore.GREEN}   ETH para gas: {balance_eth:.6f} ✅{Style.RESET_ALL}")
+                if eth_balance >= min_eth_for_gas:
+                    print(f"{Fore.GREEN}   ETH para gas: {eth_balance:.6f} ✅{Style.RESET_ALL}")
                 else:
-                    print(f"{Fore.YELLOW}   ETH para gas baixo: {balance_eth:.6f} (pode limitar trades){Style.RESET_ALL}")
+                    print(f"{Fore.YELLOW}   ETH para gas baixo: {eth_balance:.6f} (pode limitar trades){Style.RESET_ALL}")
                 
                 # Log bot pronto para operar
                 print("🚀 BOT PRONTO PARA OPERAR!")
                 print(f"✅ Inicialização completa")
                 print(f"💰 Trades possíveis: {possible_trades}")
-                print(f"🎯 Valor por trade: {TRADE_AMOUNT_WETH:.6f} WETH")
-                print(f"⛽ Gas disponível: {'✅' if balance_eth >= min_eth_for_gas else '⚠️'}")
+                print(f"🎯 Valor por trade: {TRADE_AMOUNT_ETH:.6f} ETH")
+                print(f"⛽ Gas disponível: {'✅' if eth_balance >= min_eth_for_gas else '⚠️'}")
                 print("🔍 Aguardando novos tokens...")
             else:
                 print(f"{Fore.YELLOW}⚠️ Saldo baixo mas continuará monitorando!{Style.RESET_ALL}")
-                print(f"{Fore.YELLOW}   WETH disponível: {weth_balance:.6f}{Style.RESET_ALL}")
-                print(f"{Fore.YELLOW}   Necessário para 1 trade: {TRADE_AMOUNT_WETH:.6f}{Style.RESET_ALL}")
+                print(f"{Fore.YELLOW}   ETH disponível: {eth_balance:.6f}{Style.RESET_ALL}")
+                print(f"{Fore.YELLOW}   Necessário para 1 trade: {TRADE_AMOUNT_ETH:.6f}{Style.RESET_ALL}")
                 print(f"{Fore.YELLOW}   💡 Bot aguardará mais saldo ou tokens com menor valor{Style.RESET_ALL}")
                 
                 # Log saldo baixo
                 print("⚠️ BOT INICIADO - SALDO BAIXO")
-                print(f"💰 WETH disponível: {weth_balance:.6f}")
-                print(f"🎯 Necessário: {TRADE_AMOUNT_WETH:.6f} WETH")
+                print(f"💰 ETH disponível: {eth_balance:.6f}")
+                print(f"🎯 Necessário: {TRADE_AMOUNT_ETH:.6f} ETH")
                 print("🔍 Monitorando tokens...")
                 print("💡 Aguardando saldo suficiente")
             
@@ -307,7 +289,7 @@ class SniperBot:
             
             # Validação de segurança primeiro
             security_validation = self.security_validator.validate_trade_conditions(
-                token_address, self.web3.to_wei(TRADE_AMOUNT_WETH, 'ether'), is_buy=True
+                token_address, self.web3.to_wei(TRADE_AMOUNT_ETH, 'ether'), is_buy=True
             )
             
             if not security_validation['safe_to_trade']:
@@ -349,9 +331,9 @@ class SniperBot:
             # Combinar análises (IA tem peso maior)
             combined_score = int(ai_analysis['score'] * 0.7 + traditional_analysis['score'] * 0.3)
             
-            # Boost para tokens com prioridade HIGH (pares com WETH)
+            # Boost para tokens com prioridade HIGH (pares com ETH)
             if priority == "HIGH":
-                combined_score = min(100, combined_score + 15)  # +15 pontos para pares WETH
+                combined_score = min(100, combined_score + 15)  # +15 pontos para pares ETH
                 print(f"{Fore.GREEN}🚀 Boost de prioridade HIGH: +15 pontos{Style.RESET_ALL}")
             
             final_recommendation = ai_analysis['recommendation']
@@ -444,28 +426,28 @@ class SniperBot:
                 ai_amount = self.ai_optimizer.get_optimal_trade_amount()
                 if ai_amount < trade_amount:
                     trade_amount = ai_amount
-                    print(f"🤖 IA ajustou valor para: {trade_amount:.6f} WETH")
+                    print(f"🤖 IA ajustou valor para: {trade_amount:.6f} ETH")
             
             # Notificar início da compra
             await self.telegram_bot.send_notification(
                 f"💰 **Iniciando compra!**\n"
                 f"📛 **{token_info['symbol']}**\n"
-                f"💎 Valor: {trade_amount:.6f} WETH\n"
+                f"💎 Valor: {trade_amount:.6f} ETH\n"
                 f"🧠 Estratégia: {'Dinâmica' if self.dynamic_strategy else 'Fixa'}\n"
                 f"🔍 Verificando saldos...", 
                 "high"
             )
             
-            # Verificar saldo antes de executar
+            # Verificar saldo antes de executar - agora usa ETH nativo diretamente
             balance = self.web3.eth.get_balance(WALLET_ADDRESS)
             balance_eth = float(self.web3.from_wei(balance, 'ether'))
-            weth_balance = await self._get_weth_balance()
+            # Agora usamos ETH nativo diretamente para trading
+            eth_balance = balance_eth
             
             # Log detalhado dos saldos
             print(f"{Fore.CYAN}💰 Verificação de saldos:{Style.RESET_ALL}")
-            print(f"{Fore.CYAN}   ETH (gas): {balance_eth:.6f} ETH{Style.RESET_ALL}")
-            print(f"{Fore.CYAN}   WETH (trading): {weth_balance:.6f} WETH{Style.RESET_ALL}")
-            print(f"{Fore.CYAN}   Trade amount: {trade_amount:.6f} WETH{Style.RESET_ALL}")
+            print(f"{Fore.CYAN}   ETH (gas + trading): {eth_balance:.6f} ETH{Style.RESET_ALL}")
+            print(f"{Fore.CYAN}   Trade amount: {trade_amount:.6f} ETH{Style.RESET_ALL}")
             
             # =====================================================
             # LÓGICA URGENTE: SEMPRE garantir ETH para gas PRIMEIRO
@@ -479,85 +461,50 @@ class SniperBot:
                 print(f"{Fore.RED}   ETH atual: {balance_eth:.9f}{Style.RESET_ALL}")
                 print(f"{Fore.RED}   Mínimo para transação: {MIN_ETH_FOR_ANY_TX}{Style.RESET_ALL}")
                 
-                # Tentar conversão automática primeiro
-                print(f"{Fore.YELLOW}🔄 Tentando conversão automática...{Style.RESET_ALL}")
-                conversion_success = await self.dex_handler.convert_weth_to_eth_if_needed(MIN_ETH_FOR_ANY_TX)
-                
-                if conversion_success:
-                    await asyncio.sleep(5)  # Aguardar confirmação
-                    balance_eth = float(self.web3.from_wei(self.web3.eth.get_balance(WALLET_ADDRESS), 'ether'))
-                    print(f"{Fore.GREEN}✅ Conversão OK! ETH: {balance_eth:.9f}{Style.RESET_ALL}")
+                # Verificar se é caso de "saldo zero" - situação irrecuperável sem ETH
+                if balance_eth < 0.000001:
+                    print(f"{Fore.RED}🚨 SITUAÇÃO CRÍTICA: ETH ZERO!{Style.RESET_ALL}")
+                    print(f"{Fore.RED}   Não é possível fazer nenhuma transação!{Style.RESET_ALL}")
+                    await self.telegram_bot.send_notification(
+                        f"🚨 **CRISE DE GAS!**\n"
+                        f"💰 ETH atual: {balance_eth:.9f}\n"
+                        f"⚠️ Você NÃO tem ETH para pagar gas!\n"
+                        f"💡 ENVIE ETH para sua carteira:\n"
+                        f"   `{WALLET_ADDRESS}`\n"
+                        f"⚠️ Mínimo recomendado: 0.001 ETH\n"
+                        f"❌ Compra cancelada", 
+                        "high"
+                    )
                 else:
-                    # Verificar se é caso de "saldo zero" - situação irrecuperável sem ETH
-                    if balance_eth < 0.000001:
-                        print(f"{Fore.RED}🚨 SITUAÇÃO CRÍTICA: ETH ZERO!{Style.RESET_ALL}")
-                        print(f"{Fore.RED}   Não é possível fazer nenhuma transação!{Style.RESET_ALL}")
-                        await self.telegram_bot.send_notification(
-                            f"🚨 **CRISE DE GAS!**\n"
-                            f"💰 ETH atual: {balance_eth:.9f}\n"
-                            f"⚠️ Você NÃO tem ETH para pagar gas!\n"
-                            f"💡 ENVIE ETH (não WETH) para sua carteira:\n"
-                            f"   `{WALLET_ADDRESS}`\n"
-                            f"⚠️ Mínimo recomendado: 0.001 ETH\n"
-                            f"❌ Compra cancelada", 
-                            "high"
-                        )
-                    else:
-                        await self.telegram_bot.send_notification(
-                            f"🚨 **ETH INSUFICIENTE!**\n"
-                            f"💰 ETH atual: {balance_eth:.9f}\n"
-                            f"⚠️ Mínimo necessário: {MIN_ETH_FOR_ANY_TX}\n"
-                            f"💡 Adicione ETH à sua carteira!\n"
-                            f"❌ Compra cancelada", 
-                            "high"
-                        )
-                    return
+                    await self.telegram_bot.send_notification(
+                        f"🚨 **ETH INSUFICIENTE!**\n"
+                        f"💰 ETH atual: {balance_eth:.9f}\n"
+                        f"⚠️ Mínimo necessário: {MIN_ETH_FOR_ANY_TX}\n"
+                        f"💡 Adicione ETH à sua carteira!\n"
+                        f"❌ Compra cancelada", 
+                        "high"
+                    )
+                return
             
-            min_eth_for_gas = 0.000002  # Mínimo para gas na Base
-            
-            # Se ETH está baixo, CONVERTER WETH -> ETH
-            if balance_eth < min_eth_for_gas:
-                print(f"{Fore.YELLOW}⚠️ ETH baixo ({balance_eth:.6f}) - Convertendo WETH para ETH...{Style.RESET_ALL}")
-                await self.telegram_bot.send_notification(
-                    f"🔄 **Convertendo WETH → ETH**\n"
-                    f"💰 ETH atual: {balance_eth:.9f}\n"
-                    f"🎯 Necessário: {min_eth_for_gas}", 
-                    "high"
-                )
-                
-                # Forçar conversão
-                conversion_success = await self.dex_handler.convert_weth_to_eth_if_needed(min_eth_for_gas)
-                
-                if conversion_success:
-                    await asyncio.sleep(5)
-                    balance_eth = float(self.web3.from_wei(self.web3.eth.get_balance(WALLET_ADDRESS), 'ether'))
-                    print(f"{Fore.GREEN}✅ Conversão OK! ETH: {balance_eth:.9f}{Style.RESET_ALL}")
+            # Ajustar trade_amount se ETH insuficiente
+            if eth_balance < trade_amount:
+                available_eth = eth_balance * 0.95
+                if available_eth >= 0.000050:
+                    trade_amount = available_eth
+                    print(f"{Fore.YELLOW}💡 Usando ETH disponível: {trade_amount:.6f}{Style.RESET_ALL}")
                 else:
-                    # Tentar de novo com valor menor
-                    conversion_success = await self.dex_handler.convert_weth_to_eth_if_needed(0.000001)
-                    if conversion_success:
-                        await asyncio.sleep(3)
-                        balance_eth = float(self.web3.from_wei(self.web3.eth.get_balance(WALLET_ADDRESS), 'ether'))
-            
-            # Ajustar trade_amount se WETH insuficiente
-            if weth_balance < trade_amount:
-                available_weth = weth_balance * 0.95
-                if available_weth >= 0.000050:
-                    trade_amount = available_weth
-                    print(f"{Fore.YELLOW}💡 Usando WETH disponível: {trade_amount:.6f}{Style.RESET_ALL}")
-                else:
-                    print(f"{Fore.RED}❌ WETH insuficiente!{Style.RESET_ALL}")
+                    print(f"{Fore.RED}❌ ETH insuficiente!{Style.RESET_ALL}")
                     await self.telegram_bot.send_notification(
                         f"❌ **Compra cancelada**\n"
-                        f"💰 WETH: {weth_balance:.6f}\n"
+                        f"💰 ETH: {eth_balance:.6f}\n"
                         f"⚠️ Saldo muito baixo", 
                         "high"
                     )
                     return
             
             # Verificação final ETH
-            if balance_eth < 0.000001:
-                print(f"{Fore.RED}❌ ETH insuficiente mesmo após conversão!{Style.RESET_ALL}")
+            if eth_balance < 0.000001:
+                print(f"{Fore.RED}❌ ETH insuficiente!{Style.RESET_ALL}")
                 return
             
             # Calcular quantidade a comprar
@@ -636,7 +583,7 @@ class SniperBot:
                             await self.telegram_bot.send_notification(
                                 f"🟢 **COMPRA CONFIRMADA!**\n\n"
                                 f"📛 Token: {token_info['symbol']}\n"
-                                f"💰 Valor: {trade_amount:.6f} WETH\n"
+                                f"💰 Valor: {trade_amount:.6f} ETH\n"
                                 f"🔗 TX: `{tx_hash[:10]}...{tx_hash[-10:]}`\n"
                                 f"⏰ Data: {datetime.now().strftime('%H:%M:%S')}", 
                                 "high"
@@ -866,10 +813,10 @@ class SniperBot:
             
             # Obter saldos atuais
             current_eth = float(self.web3.from_wei(self.web3.eth.get_balance(WALLET_ADDRESS), 'ether'))
-            current_weth = self._get_weth_balance_sync()
+            current_weth = self._get_eth_balance_sync()
             
             # Calcular lucro baseado na diferença de saldo
-            # (simplificado - considera saldo WETH antes e depois)
+            # (simplificado - considera saldo ETH antes e depois)
             initial_total = 0.006854  # Saldo inicial estimado
             current_total = current_eth + current_weth
             profit = current_total - initial_total
@@ -903,7 +850,7 @@ class SniperBot:
         print(f"{Fore.YELLOW}📈 Trades executados: {self.trades_executed}{Style.RESET_ALL}")
         print(f"{Fore.YELLOW}✅ Trades bem-sucedidos: {self.successful_trades}{Style.RESET_ALL}")
         print(f"{Fore.YELLOW}💰 Lucro total: {self.total_profit:.6f} ETH{Style.RESET_ALL}")
-        print(f"{Fore.YELLOW}⚙️ Valor por trade: {TRADE_AMOUNT_WETH} ETH{Style.RESET_ALL}")
+        print(f"{Fore.YELLOW}⚙️ Valor por trade: {TRADE_AMOUNT_ETH} ETH{Style.RESET_ALL}")
         
         # Status da IA
         if hasattr(self, 'ai_optimizer'):
@@ -922,55 +869,45 @@ class SniperBot:
             balance = self.web3.eth.get_balance(WALLET_ADDRESS)
             balance_eth = float(self.web3.from_wei(balance, 'ether'))
             
-            # Mostrar saldo WETH (para trading)
-            weth_balance = self._get_weth_balance_sync()
+            # Mostrar saldo ETH (para trading)
+            eth_balance = self._get_eth_balance_sync()
             
             print(f"{Fore.YELLOW}💳 Saldo ETH (gas): {balance_eth:.6f} ETH{Style.RESET_ALL}")
-            print(f"{Fore.YELLOW}💰 Saldo WETH (trading): {weth_balance:.6f} WETH{Style.RESET_ALL}")
-            print(f"{Fore.YELLOW}📊 Total estimado: {balance_eth + weth_balance:.6f} ETH{Style.RESET_ALL}")
+            print(f"{Fore.YELLOW}💰 Saldo ETH (trading): {eth_balance:.6f} ETH{Style.RESET_ALL}")
+            print(f"{Fore.YELLOW}📊 Total estimado: {balance_eth + eth_balance:.6f} ETH{Style.RESET_ALL}")
         
         print(f"{Fore.CYAN}{'='*50}{Style.RESET_ALL}\n")
     
-    def _get_weth_balance_sync(self) -> float:
-        """Obtém saldo WETH da carteira com cache e retry"""
+    def _get_eth_balance_sync(self) -> float:
+        """Obtém saldo ETH nativo da carteira com cache e retry"""
         # Cache por 30 segundos para evitar rate limit
         current_time = time.time()
-        if hasattr(self, '_weth_balance_cache') and hasattr(self, '_weth_balance_time'):
-            if current_time - self._weth_balance_time < 30:
-                cached_balance = self._weth_balance_cache
+        if hasattr(self, '_eth_balance_cache') and hasattr(self, '_eth_balance_time'):
+            if current_time - self._eth_balance_time < 30:
+                cached_balance = self._eth_balance_cache
                 # Diagnóstico: se cache for 0, forçar atualização
                 if cached_balance == 0.0:
-                    print(f"{Fore.YELLOW}⚠️ Cache WETH zerado detectado - forçando atualização...{Style.RESET_ALL}")
+                    print(f"{Fore.YELLOW}⚠️ Cache ETH zerado detectado - forçando atualização...{Style.RESET_ALL}")
                 else:
                     return cached_balance
         
         for attempt in range(3):
             try:
-                weth_abi = [
-                    {"constant": True, "inputs": [{"name": "_owner", "type": "address"}], 
-                     "name": "balanceOf", "outputs": [{"name": "balance", "type": "uint256"}], "type": "function"},
-                    {"constant": True, "inputs": [], "name": "decimals", 
-                     "outputs": [{"name": "", "type": "uint8"}], "type": "function"}
-                ]
-                
-                weth_contract = self.web3.eth.contract(address=WETH_ADDRESS, abi=weth_abi)
-                balance = weth_contract.functions.balanceOf(WALLET_ADDRESS).call()
-                decimals = weth_contract.functions.decimals().call()
-                
-                result = balance / (10 ** decimals)
+                # Obter saldo ETH nativo diretamente
+                balance = self.web3.eth.get_balance(WALLET_ADDRESS)
+                result = float(self.web3.from_wei(balance, 'ether'))
                 
                 # Log detalhado para diagnóstico
-                print(f"{Fore.GREEN}✅ Saldo WETH lido: {result:.6f} WETH (raw: {balance}, decimals: {decimals}){Style.RESET_ALL}")
+                print(f"{Fore.GREEN}✅ Saldo ETH nativo lido: {result:.6f} ETH (raw: {balance}){Style.RESET_ALL}")
                 
                 # Cache o resultado
-                self._weth_balance_cache = result
-                self._weth_balance_time = current_time
+                self._eth_balance_cache = result
+                self._eth_balance_time = current_time
                 
                 # Diagnóstico adicional
                 if result == 0.0:
-                    print(f"{Fore.RED}⚠️ ATENÇÃO: Saldo WETH é 0.0 - verificar configuração da carteira{Style.RESET_ALL}")
+                    print(f"{Fore.RED}⚠️ ATENÇÃO: Saldo ETH é 0.0 - verificar configuração da carteira{Style.RESET_ALL}")
                     print(f"{Fore.YELLOW}📍 Carteira: {WALLET_ADDRESS}{Style.RESET_ALL}")
-                    print(f"{Fore.YELLOW}📍 WETH Contract: {WETH_ADDRESS}{Style.RESET_ALL}")
                 
                 return result
                 
@@ -980,19 +917,28 @@ class SniperBot:
                     time.sleep(2 ** attempt)  # Backoff exponencial
                     continue
                 else:
-                    print(f"{Fore.RED}❌ Erro ao obter saldo WETH: {str(e)}{Style.RESET_ALL}")
+                    print(f"{Fore.RED}❌ Erro ao obter saldo ETH: {str(e)}{Style.RESET_ALL}")
                     break
         
         # Se falhou, retorna último valor em cache ou valor padrão
-        if hasattr(self, '_weth_balance_cache'):
-            print(f"{Fore.YELLOW}⚠️ Usando saldo em cache: {self._weth_balance_cache:.6f} WETH{Style.RESET_ALL}")
-            return self._weth_balance_cache
+        if hasattr(self, '_eth_balance_cache'):
+            print(f"{Fore.YELLOW}⚠️ Usando saldo em cache: {self._eth_balance_cache:.6f} ETH{Style.RESET_ALL}")
+            return self._eth_balance_cache
         
         return 0.0
     
-    async def _get_weth_balance(self) -> float:
-        """Obtém saldo WETH da carteira (versão assíncrona)"""
-        return self._get_weth_balance_sync()
+    # Mantido para compatibilidade
+    def _get_eth_balance_sync(self) -> float:
+        """Obtém saldo ETH nativo (agora usa ETH diretamente)"""
+        return self._get_eth_balance_sync()
+    
+    async def _get_eth_balance(self) -> float:
+        """Obtém saldo ETH nativo (versão assíncrona)"""
+        return self._get_eth_balance_sync()
+    
+    async def _get_eth_balance(self) -> float:
+        """Obtém saldo ETH nativo da carteira (versão assíncrona)"""
+        return self._get_eth_balance_sync()
     
     async def _get_token_balance(self, token_address: str) -> float:
         """Obtém saldo de um token específico"""
@@ -1022,13 +968,13 @@ class SniperBot:
             if not self.smart_scaling:
                 return
             
-            current_weth_balance = await self._get_weth_balance()
+            current_eth_balance = await self._get_eth_balance()
             current_time = time.time()
             
             # Atualizar histórico de saldo
             self.balance_history.append({
                 'timestamp': current_time,
-                'balance': current_weth_balance
+                'balance': current_eth_balance
             })
             
             # Manter apenas últimas 100 entradas
@@ -1036,7 +982,7 @@ class SniperBot:
                 self.balance_history = self.balance_history[-100:]
             
             # Calcular crescimento do saldo
-            growth_factor = current_weth_balance / self.initial_balance if self.initial_balance > 0 else 1
+            growth_factor = current_eth_balance / self.initial_balance if self.initial_balance > 0 else 1
             
             # Sistema de escalonamento inteligente
             if growth_factor >= 1.5:  # Saldo cresceu 50%
@@ -1046,8 +992,8 @@ class SniperBot:
                 new_percentage = base_percentage + growth_bonus
                 
                 new_trade_amount = min(
-                    current_weth_balance * new_percentage,
-                    current_weth_balance * 0.35  # Máximo 35% do saldo
+                    current_eth_balance * new_percentage,
+                    current_eth_balance * 0.35  # Máximo 35% do saldo
                 )
                 
                 # Garantir valor mínimo
@@ -1059,19 +1005,19 @@ class SniperBot:
                     await self.telegram_bot.send_notification(
                         f"🧠 **ESTRATÉGIA INTELIGENTE ATIVADA!**\n\n"
                         f"📈 **Crescimento:** {(growth_factor-1)*100:.1f}%\n"
-                        f"💰 **Saldo atual:** {current_weth_balance:.6f} WETH\n"
-                        f"🎯 **Novo valor/trade:** {new_trade_amount:.6f} WETH\n"
-                        f"⚡ **Percentual:** {(new_trade_amount/current_weth_balance)*100:.1f}%\n\n"
+                        f"💰 **Saldo atual:** {current_eth_balance:.6f} ETH\n"
+                        f"🎯 **Novo valor/trade:** {new_trade_amount:.6f} ETH\n"
+                        f"⚡ **Percentual:** {(new_trade_amount/current_eth_balance)*100:.1f}%\n\n"
                         f"🚀 **Maximizando retornos com crescimento!**", 
                         "high"
                     )
                     
-                    print(f"{Fore.GREEN}🧠 Estratégia inteligente: {new_trade_amount:.6f} WETH por trade ({(new_trade_amount/current_weth_balance)*100:.1f}% do saldo){Style.RESET_ALL}")
+                    print(f"{Fore.GREEN}🧠 Estratégia inteligente: {new_trade_amount:.6f} ETH por trade ({(new_trade_amount/current_eth_balance)*100:.1f}% do saldo){Style.RESET_ALL}")
             
-            elif current_weth_balance < self.initial_balance * 0.8:  # Saldo caiu 20%
+            elif current_eth_balance < self.initial_balance * 0.8:  # Saldo caiu 20%
                 # Reduzir valor por trade para preservar capital
                 conservative_amount = max(
-                    current_weth_balance * 0.15,  # 15% do saldo atual
+                    current_eth_balance * 0.15,  # 15% do saldo atual
                     MIN_TRADE_AMOUNT
                 )
                 
@@ -1080,13 +1026,13 @@ class SniperBot:
                     
                     await self.telegram_bot.send_notification(
                         f"🛡️ **MODO CONSERVADOR ATIVADO**\n\n"
-                        f"📉 **Saldo atual:** {current_weth_balance:.6f} WETH\n"
-                        f"🎯 **Valor reduzido:** {conservative_amount:.6f} WETH\n"
+                        f"📉 **Saldo atual:** {current_eth_balance:.6f} ETH\n"
+                        f"🎯 **Valor reduzido:** {conservative_amount:.6f} ETH\n"
                         f"💡 **Preservando capital para recuperação**", 
                         "normal"
                     )
                     
-                    print(f"{Fore.YELLOW}🛡️ Modo conservador: {conservative_amount:.6f} WETH por trade{Style.RESET_ALL}")
+                    print(f"{Fore.YELLOW}🛡️ Modo conservador: {conservative_amount:.6f} ETH por trade{Style.RESET_ALL}")
             
             # Atualizar timestamp da última verificação
             self.last_balance_check = current_time
@@ -1123,7 +1069,7 @@ class SniperBot:
             optimal_size = base_amount * size_multiplier * market_multiplier
             
             # Aplicar limites de segurança
-            current_balance = await self._get_weth_balance()
+            current_balance = await self._get_eth_balance()
             max_allowed = current_balance * (MAX_TRADE_PERCENTAGE / 100)
             min_allowed = MIN_TRADE_AMOUNT
             
@@ -1486,12 +1432,12 @@ class SniperBot:
             if hasattr(self.telegram_bot, 'send_status_update'):
                 try:
                     balance_eth = 0.0
-                    weth_balance = 0.0
+                    eth_balance = 0.0
                     
                     if self.web3:
                         balance = self.web3.eth.get_balance(WALLET_ADDRESS)
                         balance_eth = float(self.web3.from_wei(balance, 'ether'))
-                        weth_balance = self._get_weth_balance_sync()
+                        eth_balance = self._get_eth_balance_sync()
                     
                     status_data = {
                         'status': 'Rodando' if self.running else 'Parado',
@@ -1499,7 +1445,7 @@ class SniperBot:
                         'successful_trades': self.successful_trades,
                         'total_profit': f"{self.total_profit:.6f}",
                         'eth_balance': f"{balance_eth:.6f}",
-                        'weth_balance': f"{weth_balance:.6f}"
+                        'eth_balance': f"{eth_balance:.6f}"
                     }
                     
                     await self.telegram_bot.send_status_update(status_data)

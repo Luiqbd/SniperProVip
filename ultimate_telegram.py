@@ -380,7 +380,7 @@ Este é um bot de sniper para a Base Network que detecta novos tokens e executa 
 <b>Botões:</b>
 • <b>🚀 INICIAR</b> - Inicia o sniper
 • <b>⏹️ PARAR</b> - Para o sniper
-• <b>💰 SALDOS</b> - Verifica ETH/WETH
+• <b>💰 SALDOS</b> - Verifica ETH/ETH
 • <b>📊 STATUS</b> - Verifica status
 • <b>📈 HISTÓRICO</b> - Ver trades
 • <b>⚙️ CONFIG</b> - Configurações
@@ -505,9 +505,9 @@ Aumenta automaticamente o valor do trade quando o saldo cresce.
             eth_balance_wei = web3.eth.get_balance(WALLET_ADDRESS)
             eth_balance = float(web3.from_wei(eth_balance_wei, 'ether'))
             
-            # Saldo WETH
+            # Saldo ETH
             weth_contract = web3.eth.contract(
-                address=WETH_ADDRESS,
+                address=ETH_ADDRESS,
                 abi=[{
                     "constant": True,
                     "inputs": [{"name": "_owner", "type": "address"}],
@@ -516,16 +516,16 @@ Aumenta automaticamente o valor do trade quando o saldo cresce.
                     "type": "function"
                 }]
             )
-            weth_balance_wei = weth_contract.functions.balanceOf(WALLET_ADDRESS).call()
-            weth_balance = float(web3.from_wei(weth_balance_wei, 'ether'))
+            eth_balance_wei = weth_contract.functions.balanceOf(WALLET_ADDRESS).call()
+            eth_balance = float(web3.from_wei(eth_balance_wei, 'ether'))
             
-            total = eth_balance + weth_balance
+            total = eth_balance + eth_balance
             
             text = f"""
 💰 <b>SALDOS - CARTEIRA</b>
 
 <b>ETH (Gas):</b> {eth_balance:.6f} ETH
-<b>WETH (Trade):</b> {weth_balance:.6f} WETH
+<b>ETH (Trade):</b> {eth_balance:.6f} ETH
 
 <b>Total:</b> {total:.6f} ETH
 
@@ -570,7 +570,7 @@ Aumenta automaticamente o valor do trade quando o saldo cresce.
                 eth_balance = float(web3.from_wei(eth_balance_wei, 'ether'))
                 
                 weth_contract = web3.eth.contract(
-                    address=WETH_ADDRESS,
+                    address=ETH_ADDRESS,
                     abi=[{
                         "constant": True,
                         "inputs": [{"name": "_owner", "type": "address"}],
@@ -579,11 +579,11 @@ Aumenta automaticamente o valor do trade quando o saldo cresce.
                         "type": "function"
                     }]
                 )
-                weth_balance_wei = weth_contract.functions.balanceOf(WALLET_ADDRESS).call()
-                weth_balance = float(web3.from_wei(weth_balance_wei, 'ether'))
+                eth_balance_wei = weth_contract.functions.balanceOf(WALLET_ADDRESS).call()
+                eth_balance = float(web3.from_wei(eth_balance_wei, 'ether'))
             except:
                 eth_balance = 0
-                weth_balance = 0
+                eth_balance = 0
             
             text = f"""
 📊 <b>STATUS DO SNIPER</b>
@@ -598,8 +598,8 @@ Aumenta automaticamente o valor do trade quando o saldo cresce.
 
 <b>💰 Saldos:</b>
 • ETH: {eth_balance:.6f}
-• WETH: {weth_balance:.6f}
-• Total: {eth_balance + weth_balance:.6f}
+• ETH: {eth_balance:.6f}
+• Total: {eth_balance + eth_balance:.6f}
 """
             keyboard = self.get_status_keyboard()
             
@@ -668,7 +668,7 @@ Aumenta automaticamente o valor do trade quando o saldo cresce.
 <b>Rede:</b> Base Network (8453)
 
 <b>💵 Trading:</b>
-• Trade Amount: {TRADE_AMOUNT_WETH} WETH
+• Trade Amount: {TRADE_AMOUNT_ETH} ETH
 • Slippage: {SLIPPAGE_TOLERANCE}%
 • Profit Target: {TARGET_PROFIT_PERCENTAGE}%
 
@@ -696,7 +696,7 @@ Aumenta automaticamente o valor do trade quando o saldo cresce.
 <b>Modo:</b> 🔥 AGRESSIVO
 
 <b>Parâmetros:</b>
-• Trade: {TRADE_AMOUNT_WETH} WETH
+• Trade: {TRADE_AMOUNT_ETH} ETH
 • Target: {TARGET_PROFIT_PERCENTAGE}%
 • Stop Loss: 15%
 • Quick Profit: 5%
@@ -933,7 +933,7 @@ Aumenta automaticamente o valor do trade quando o saldo cresce.
 <b>Sucessos:</b> {status_data.get('successful_trades', 0)}
 <b>Lucro:</b> {status_data.get('total_profit', '0')} ETH
 <b>ETH:</b> {status_data.get('eth_balance', '0')}
-<b>WETH:</b> {status_data.get('weth_balance', '0')}
+<b>ETH:</b> {status_data.get('eth_balance', '0')}
 """
         keyboard = self.get_status_keyboard()
         self.send_message_sync(text, keyboard)

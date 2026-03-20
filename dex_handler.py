@@ -188,9 +188,9 @@ class DEXHandler:
             }
         ]
     
-    async def get_weth_balance(self) -> float:
-        """Obtém saldo WETH da carteira com cache e RPC backup"""
-        cache_key = f"weth_balance_{WALLET_ADDRESS}"
+    async def get_eth_balance(self) -> float:
+        """Obtém saldo ETH nativo da carteira com cache e RPC backup"""
+        cache_key = f"eth_balance_{WALLET_ADDRESS}"
         
         # SEMPRE tentar obter saldo fresco (cache curto)
         cached_balance = self._get_cached_balance(cache_key)
@@ -201,24 +201,14 @@ class DEXHandler:
                 await BASE_RPC_LIMITER.acquire()
                 
                 web3_instance = self._get_web3_instance()
-                weth_contract = web3_instance.eth.contract(
-                    address=WETH_ADDRESS,
-                    abi=[{
-                        "constant": True,
-                        "inputs": [{"name": "_owner", "type": "address"}],
-                        "name": "balanceOf",
-                        "outputs": [{"name": "balance", "type": "uint256"}],
-                        "type": "function"
-                    }]
-                )
-                
-                balance_wei = weth_contract.functions.balanceOf(WALLET_ADDRESS).call()
+                # Obter saldo nativo de ETH diretamente
+                balance_wei = web3_instance.eth.get_balance(WALLET_ADDRESS)
                 balance_eth = float(web3_instance.from_wei(balance_wei, 'ether'))
                 
                 # Cache o resultado
                 self._cache_balance(cache_key, balance_eth)
                 
-                print(f"✅ Saldo WETH lido: {balance_eth:.6f} WETH (raw: {balance_wei}, decimals: 18)")
+                print(f"✅ Saldo ETH nativo lido: {balance_eth:.6f} ETH (raw: {balance_wei})")
                 BASE_RPC_LIMITER.handle_success()
                 return balance_eth
                 
@@ -230,126 +220,39 @@ class DEXHandler:
                         await asyncio.sleep(5)  # Esperar mais
                         continue
                 
-                print(f"❌ Erro ao obter saldo WETH: {str(e)[:50]}")
+                print(f"❌ Erro ao obter saldo ETH: {str(e)[:50]}")
                 if attempt == 4:  # Última tentativa
                     # Usar cache mesmo que expirou
                     cached = self._get_cached_balance(cache_key)
                     if cached is not None:
-                        print(f"⚠️ Usando saldo em cache: {cached:.6f} WETH")
+                        print(f"⚠️ Usando saldo em cache: {cached:.6f} ETH")
                         return cached
                     return 0.0
                     
         # Se tudo falhar, tentar usar cache
         cached = self._get_cached_balance(cache_key)
         if cached is not None:
-            print(f"⚠️ Usando saldo em cache após falhas: {cached:.6f} WETH")
+            print(f"⚠️ Usando saldo em cache após falhas: {cached:.6f} ETH")
             return cached
         return 0.0
     
+    # Mantido para compatibilidade - apenas retorna saldo ETH nativo
+    async def get_weth_balance(self) -> float:
+        """Obtém saldo ETH nativo (agora usa ETH diretamente)"""
+        return await self.get_eth_balance()
+    
     async def convert_weth_to_eth_if_needed(self, min_eth_needed: float = 0.00001) -> bool:
         """
-        Converte WETH para ETH se o saldo de ETH estiver muito baixo
-        VERSÃO OTIMIZADA PARA SALDOS MÍNIMOS
+        Agora não precisa mais converter WETH para ETH - usamos ETH nativo diretamente!
+        Mantido para compatibilidade.
         """
-        for attempt in range(3):
-            try:
-                await BASE_RPC_LIMITER.acquire()
-                
-                web3_instance = self._get_web3_instance()
-                eth_balance = web3_instance.eth.get_balance(WALLET_ADDRESS)
-                eth_balance_eth = float(web3_instance.from_wei(eth_balance, 'ether'))
-                
-                if eth_balance_eth >= min_eth_needed:
-                    return True  # ETH suficiente
-                
-                print(f"⚠️ Saldo ETH baixo: {eth_balance_eth:.9f} (precisa: {min_eth_needed})")
-                
-                # Verificar saldo WETH
-                weth_abi = [
-                    {"constant": True, "inputs": [{"name": "_owner", "type": "address"}], "name": "balanceOf", "outputs": [{"name": "balance", "type": "uint256"}], "type": "function"},
-                    {"constant": False, "inputs": [{"name": "wad", "type": "uint256"}], "name": "withdraw", "outputs": [], "type": "function"}
-                ]
-                
-                weth_contract = web3_instance.eth.contract(address=WETH_ADDRESS, abi=weth_abi)
-                weth_balance = weth_contract.functions.balanceOf(WALLET_ADDRESS).call()
-                weth_balance_eth = float(web3_instance.from_wei(weth_balance, 'ether'))
-                
-                # Calcular exatamente o quanto precisa para gas + conversão
-                # Usar gas price mínimo absoluto possível
-                gas_price = web3_instance.to_wei(0.01, 'gwei')  # 0.01 gwei =最小
-                gas_limit = 25000  # Gas mínimo para withdraw
-                gas_cost_eth = float(web3_instance.from_wei(gas_price * gas_limit, 'ether'))
-                
-                # Calcular quanto ETH precisamos ter após conversão
-                total_needed = max(min_eth_needed, gas_cost_eth * 2)  # Deixar folga
-                
-                # Converter exatamente o necessário + custo do gas
-                eth_to_convert = total_needed - eth_balance_eth + gas_cost_eth
-                eth_to_convert = max(eth_to_convert, gas_cost_eth * 1.5)  # Mínimo para cobrir gas
-                
-                print(f"💰 WETH disponível: {weth_balance_eth:.9f}")
-                print(f"💰 ETH atual: {eth_balance_eth:.9f}")
-                print(f"💰 ETH necessário (gas + operação): {total_needed:.9f}")
-                print(f"💰 Convertendo: {eth_to_convert:.9f}")
-                
-                if weth_balance_eth >= eth_to_convert:
-                    # Converter WETH para ETH
-                    withdraw_amount = int(web3_instance.to_wei(eth_to_convert, 'ether'))
-                    
-                    print(f"💱 Convertendo {eth_to_convert:.9f} WETH para ETH...")
-                    
-                    # Preparar transação de withdraw com gas MÍNIMO
-                    withdraw_tx = weth_contract.functions.withdraw(withdraw_amount).build_transaction({
-                        'from': WALLET_ADDRESS,
-                        'gas': gas_limit,
-                        'gasPrice': gas_price,  # Gas price mínimo
-                        'nonce': web3_instance.eth.get_transaction_count(WALLET_ADDRESS)
-                    })
-                    
-                    # Assinar e enviar
-                    signed_tx = web3_instance.eth.account.sign_transaction(withdraw_tx, PRIVATE_KEY)
-                    tx_hash = web3_instance.eth.send_raw_transaction(signed_tx.rawTransaction)
-                    
-                    print(f"✅ Conversão enviada: {tx_hash.hex()}")
-                    
-                    # Aguardar confirmação
-                    try:
-                        receipt = web3_instance.eth.wait_for_transaction_receipt(tx_hash, timeout=30)
-                        if receipt.status == 1:
-                            print(f"✅ Conversão confirmada!")
-                            BASE_RPC_LIMITER.handle_success()
-                            return True
-                        else:
-                            print(f"❌ Conversão falhou")
-                            return False
-                    except:
-                        # Se não confirmou em 30s, assume que vai confirmar
-                        print(f"⏳ Conversão pendente (pode confirmar)")
-                        return True
-                else:
-                    print(f"❌ WETH insuficiente: {weth_balance_eth:.9f} < {eth_to_convert:.9f}")
-                    return False
-                    
-            except Exception as e:
-                error_str = str(e)
-                if "insufficient funds" in error_str.lower():
-                    print(f"❌ Saldo ETH insuficiente até para transação de conversão!")
-                    print(f"💡 SOLUÇÃO: Adicione ETH à carteira para pagar gas")
-                    return False
-                elif "429" in error_str or "Too Many Requests" in error_str:
-                    BASE_RPC_LIMITER.handle_429_error()
-                    if attempt < 2:
-                        print(f"⚠️ Rate limit - tentativa {attempt + 1}/3")
-                        await asyncio.sleep(5)
-                        continue
-                
-                print(f"❌ Erro na conversão: {error_str[:100]}")
-                if attempt == 2:
-                    return False
-                    
+        # Verificar saldo ETH nativo diretamente
+        eth_balance = await self.get_eth_balance()
+        if eth_balance >= min_eth_needed:
+            return True  # ETH suficiente
         return False
     
-    async def _execute_trade_with_weth_gas(self, router_address: str, token_address: str, amount: float, is_buy: bool, slippage: float = 3.0):
+    async def _execute_trade_with_eth_gas(self, router_address: str, token_address: str, amount: float, is_buy: bool, slippage: float = 3.0):
         """
         Executa trade usando WETH para pagar gas (método alternativo)
         """
@@ -614,17 +517,17 @@ class DEXHandler:
         import time
         from eth_account import Account
         
-        print(f"🔄 Iniciando swap: {'Compra' if is_buy else 'Venda'} de {self.web3.from_wei(amount_in, 'ether'):.6f} {'WETH' if is_buy else 'tokens'}")
+        print(f"🔄 Iniciando swap: {'Compra' if is_buy else 'Venda'} de {self.web3.from_wei(amount_in, 'ether'):.6f} {'ETH' if is_buy else 'tokens'}")
         print(f"📍 Router: {router_address}")
         
         try:
             # Verificar saldos antes da transação
             if is_buy:
-                weth_balance = await self.get_weth_balance()
-                required_weth = self.web3.from_wei(amount_in, 'ether')
-                print(f"💰 Saldo WETH: {weth_balance:.6f}, Necessário: {required_weth:.6f}")
-                if weth_balance < required_weth:
-                    print(f"❌ Saldo WETH insuficiente!")
+                eth_balance = await self.get_eth_balance()
+                required_eth = self.web3.from_wei(amount_in, 'ether')
+                print(f"💰 Saldo ETH: {eth_balance:.6f}, Necessário: {required_eth:.6f}")
+                if eth_balance < required_eth:
+                    print(f"❌ Saldo ETH insuficiente!")
                     return None
             
             # Verificar ETH para gas com rate limiting
@@ -684,58 +587,17 @@ class DEXHandler:
             
             # Preparar transação
             if is_buy:
-                # Comprar token com WETH (não ETH direto)
-                # Primeiro precisa aprovar WETH se necessário
-                weth_abi = [
-                    {"constant": False, "inputs": [{"name": "_spender", "type": "address"}, {"name": "_value", "type": "uint256"}], "name": "approve", "outputs": [{"name": "", "type": "bool"}], "type": "function"},
-                    {"constant": True, "inputs": [{"name": "_owner", "type": "address"}, {"name": "_spender", "type": "address"}], "name": "allowance", "outputs": [{"name": "", "type": "uint256"}], "type": "function"}
-                ]
+                # Comprar token com ETH nativo - usando swapExactETHForTokens
+                # Não precisa mais de aprovação WETH!
                 
-                weth_contract = web3_instance.eth.contract(address=WETH_ADDRESS, abi=weth_abi)
-                
-                # Verificar allowance atual
-                current_allowance = weth_contract.functions.allowance(WALLET_ADDRESS, router_address).call()
-                
-                if current_allowance < amount_in:
-                    # Aprovar WETH para o router
-                    # SEMPRE usar gas baixo
-                    gas_limit = 50000
-                    gas_price = web3_instance.to_wei(0.01, 'gwei')  # SEMPRE mínimo
-                    
-                    # Usar nonce correto
-                    nonce = web3_instance.eth.get_transaction_count(WALLET_ADDRESS)
-                    
-                    approve_tx = weth_contract.functions.approve(
-                        router_address, 
-                        amount_in * 2  # Aprovar um pouco mais para futuras transações
-                    ).build_transaction({
-                        'from': WALLET_ADDRESS,
-                        'gas': gas_limit,
-                        'gasPrice': gas_price,
-                        'nonce': nonce
-                    })
-                    
-                    # Assinar e enviar aprovação
-                    signed_approve = web3_instance.eth.account.sign_transaction(approve_tx, PRIVATE_KEY)
-                    approve_hash = web3_instance.eth.send_raw_transaction(signed_approve.rawTransaction)
-                    print(f"🔓 Aprovação WETH enviada: {approve_hash.hex()}")
-                    
-                    # Aguardar confirmação da aprovação
-                    time.sleep(2)
-                else:
-                    # SEMPRE usar gas baixo
-                    gas_limit = 50000
-                    gas_price = web3_instance.to_wei(0.01, 'gwei')
-                
-                # Agora fazer o swap usando swapExactTokensForTokens
                 # Usar nonce correto
                 nonce = web3_instance.eth.get_transaction_count(WALLET_ADDRESS)
                 
                 # SEMPRE gas baixo
                 gas_price = web3_instance.to_wei(0.01, 'gwei')
                 
-                transaction = router_contract.functions.swapExactTokensForTokens(
-                    amount_in,
+                # Usar swapExactETHForTokens - envia ETH diretamente!
+                transaction = router_contract.functions.swapExactETHForTokens(
                     amount_out_min,
                     path,
                     WALLET_ADDRESS,
@@ -743,8 +605,9 @@ class DEXHandler:
                 ).build_transaction({
                     'from': WALLET_ADDRESS,
                     'gas': 150000,  # Reduzido para Base
-                    'gasPrice': web3_instance.to_wei(0.01, 'gwei'),  # SEMPRE baixo
-                    'nonce': nonce
+                    'gasPrice': gas_price,  # SEMPRE baixo
+                    'nonce': nonce,
+                    'value': amount_in  # ETH enviado diretamente!
                 })
             else:
                 # Vender token por WETH

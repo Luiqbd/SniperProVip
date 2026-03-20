@@ -98,9 +98,9 @@ class AIOptimizer:
         # Saldo atual
         if self.sniper_bot and self.sniper_bot.web3:
             try:
-                weth_balance = self.sniper_bot._get_weth_balance_sync()
-                if weth_balance > 0:
-                    self.current_balance = weth_balance
+                eth_balance = self.sniper_bot._get_eth_balance_sync()
+                if eth_balance > 0:
+                    self.current_balance = eth_balance
             except:
                 pass
         
@@ -128,7 +128,7 @@ class AIOptimizer:
         trade_amount = self.current_balance * base_percentage
         
         # Garantir valor mínimo
-        return max(trade_amount, 0.0001)  # Mínimo 0.0001 WETH
+        return max(trade_amount, 0.0001)  # Mínimo 0.0001 ETH
         
     def should_sell(self, current_profit_pct: float, hold_time: int) -> tuple[bool, str]:
         """
@@ -214,7 +214,7 @@ class AIOptimizer:
             "win_rate": f"{self.win_rate*100:.1f}%",
             "trades": len(self.trade_history),
             "current_streak": self.current_streak,
-            "balance": f"{self.current_balance:.6f} WETH",
+            "balance": f"{self.current_balance:.6f} ETH",
             "params": self.params,
             "recommendation": self.get_recommendation()
         }

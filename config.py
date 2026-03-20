@@ -20,8 +20,9 @@ PRIVATE_KEY = os.getenv('PRIVATE_KEY')
 WALLET_ADDRESS = os.getenv('WALLET_ADDRESS')
 
 # Trading Configuration - OTIMIZADO PARA BASE NETWORK - MODO CRESCIMENTO RÁPIDO
-INITIAL_WETH_BALANCE = float(os.getenv('INITIAL_WETH_BALANCE', '0.001990'))  # Saldo inicial real
-TRADE_AMOUNT_WETH = float(os.getenv('TRADE_AMOUNT_WETH', '0.000498'))  # 25% do saldo (mais agressivo para crescimento)
+# Usando ETH nativo (não WETH) para simplicidade
+INITIAL_ETH_BALANCE = float(os.getenv('INITIAL_ETH_BALANCE', '0.001990'))  # Saldo inicial real
+TRADE_AMOUNT_ETH = float(os.getenv('TRADE_AMOUNT_ETH', '0.000498'))  # 25% do saldo (mais agressivo para crescimento)
 MAX_GAS_PRICE = int(os.getenv('MAX_GAS_PRICE', '50'))  # Aumentado para Base Network (mais competitivo)
 SLIPPAGE_TOLERANCE = float(os.getenv('SLIPPAGE_TOLERANCE', '30'))  # 30% slippage para garantir execução em tokens novos
 MAX_PRIORITY_FEE = int(os.getenv('MAX_PRIORITY_FEE', '5'))  # Aumentado para velocidade na Base Network

@@ -92,12 +92,12 @@ async def test_balance_check(web3):
         balance_eth = float(web3.from_wei(balance, 'ether'))
         print(f"💰 Saldo ETH: {balance_eth:.6f} ETH")
         
-        # Saldo WETH
+        # Saldo ETH
         dex_handler = DEXHandler(web3)
-        weth_balance = await dex_handler.get_weth_balance()
-        print(f"💰 Saldo WETH: {weth_balance:.6f} WETH")
+        eth_balance = await dex_handler.get_eth_balance()
+        print(f"💰 Saldo ETH: {eth_balance:.6f} ETH")
         
-        total_balance = balance_eth + weth_balance
+        total_balance = balance_eth + eth_balance
         print(f"💰 Saldo total: {total_balance:.6f} ETH")
         
         if total_balance > 0:
@@ -119,9 +119,9 @@ async def test_price_discovery(web3):
         dex_handler = DEXHandler(web3)
         
         # Testar com USDC (token conhecido)
-        test_amount = web3.to_wei(0.0001, 'ether')  # 0.0001 WETH
+        test_amount = web3.to_wei(0.0001, 'ether')  # 0.0001 ETH
         
-        print(f"🔍 Testando preço WETH -> USDC...")
+        print(f"🔍 Testando preço ETH -> USDC...")
         best_dex, best_price, best_router = await dex_handler.get_best_price(
             USDC_ADDRESS, test_amount, is_buy=True
         )

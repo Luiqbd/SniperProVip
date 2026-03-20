@@ -256,7 +256,7 @@ class TelegramBotHandler:
 🚀 **SNIPER BOT V6 - ATIVO**
 
 💰 **Status da Carteira:**
-• WETH: {self.get_weth_balance():.6f} WETH
+• ETH: {self.get_eth_balance():.6f} ETH
 • ETH: {self.get_eth_balance():.6f} ETH
 
 🤖 **Bot Status:** {'🟢 ATIVO' if self.is_bot_running() else '🔴 PARADO'}
@@ -449,7 +449,7 @@ class TelegramBotHandler:
 🚀 **SNIPER BOT V6 - ATUALIZADO**
 
 💰 **Status da Carteira:**
-• WETH: {self.get_weth_balance():.6f} WETH
+• ETH: {self.get_eth_balance():.6f} ETH
 • ETH: {self.get_eth_balance():.6f} ETH
 
 🤖 **Bot Status:** {'🟢 ATIVO' if self.is_bot_running() else '🔴 PARADO'}
@@ -514,7 +514,7 @@ class TelegramBotHandler:
 ⏰ **Uptime:** {str(uptime).split('.')[0]}
 
 💰 **Saldos:**
-• WETH: {self.get_weth_balance():.6f} WETH
+• ETH: {self.get_eth_balance():.6f} ETH
 • ETH: {self.get_eth_balance():.6f} ETH
 • Total: {self.get_total_balance():.6f} ETH
 
@@ -540,8 +540,8 @@ class TelegramBotHandler:
         else:
             address_display = "`Não configurado`"
         
-        weth_balance = self.get_weth_balance()
-        trades_possible = int(weth_balance / TRADE_AMOUNT_WETH) if weth_balance > 0 and TRADE_AMOUNT_WETH > 0 else 0
+        eth_balance = self.get_eth_balance()
+        trades_possible = int(eth_balance / TRADE_AMOUNT_ETH) if eth_balance > 0 and TRADE_AMOUNT_ETH > 0 else 0
         
         wallet_text = f"""
 💰 **CARTEIRA DETALHADA**
@@ -549,12 +549,12 @@ class TelegramBotHandler:
 🏦 **Endereço:** {address_display}
 
 💎 **Saldos:**
-• WETH (Trading): {weth_balance:.6f} WETH
+• ETH (Trading): {eth_balance:.6f} ETH
 • ETH (Gas): {self.get_eth_balance():.6f} ETH
 • Total Estimado: {self.get_total_balance():.6f} ETH
 
 ⚙️ **Configurações:**
-• Valor por trade: {TRADE_AMOUNT_WETH:.6f} WETH
+• Valor por trade: {TRADE_AMOUNT_ETH:.6f} ETH
 • Trades possíveis: {trades_possible}
 
 🔄 **Atualizado:** {datetime.now().strftime('%H:%M:%S')}
@@ -573,7 +573,7 @@ class TelegramBotHandler:
 ⚙️ **MENU DE CONFIGURAÇÕES**
 
 🎯 **Configurações Atuais:**
-• Valor por trade: {TRADE_AMOUNT_WETH:.6f} WETH
+• Valor por trade: {TRADE_AMOUNT_ETH:.6f} ETH
 • Slippage: {SLIPPAGE_TOLERANCE}%
 • DEX preferida: {PRIMARY_DEX}
 
@@ -662,8 +662,8 @@ class TelegramBotHandler:
 
 💰 **Trading:**
 • Trades executados: {self.monitoring_stats['trades_executed']}
-• Volume total: {self.monitoring_stats['trades_executed'] * TRADE_AMOUNT_WETH:.6f} WETH
-• ROI: {((self.monitoring_stats['total_profit'] / max(0.001, self.monitoring_stats['trades_executed'] * TRADE_AMOUNT_WETH)) * 100):.2f}%
+• Volume total: {self.monitoring_stats['trades_executed'] * TRADE_AMOUNT_ETH:.6f} ETH
+• ROI: {((self.monitoring_stats['total_profit'] / max(0.001, self.monitoring_stats['trades_executed'] * TRADE_AMOUNT_ETH)) * 100):.2f}%
 
 🎯 **Eficiência:**
 • Trades/hora: {(self.monitoring_stats['trades_executed'] / max(1, uptime.total_seconds() / 3600)):.2f}
@@ -715,21 +715,21 @@ Para analisar um token específico, envie o comando:
     
     async def handle_adjust_amount(self, query):
         """Ajustar valor de trade"""
-        current_balance = self.get_weth_balance()
-        max_trades = int(current_balance / TRADE_AMOUNT_WETH) if current_balance > 0 else 0
+        current_balance = self.get_eth_balance()
+        max_trades = int(current_balance / TRADE_AMOUNT_ETH) if current_balance > 0 else 0
         
         adjust_text = f"""
 💰 **AJUSTAR VALOR DE TRADE**
 
 📊 **Situação Atual:**
-• Valor por trade: {TRADE_AMOUNT_WETH:.6f} WETH
-• Saldo disponível: {current_balance:.6f} WETH
+• Valor por trade: {TRADE_AMOUNT_ETH:.6f} ETH
+• Saldo disponível: {current_balance:.6f} ETH
 • Trades possíveis: {max_trades}
 
 ⚙️ **Opções disponíveis:**
-• Conservador: 0.0001 WETH (~{int(current_balance / 0.0001)} trades)
-• Moderado: 0.0005 WETH (~{int(current_balance / 0.0005)} trades)
-• Agressivo: 0.001 WETH (~{int(current_balance / 0.001)} trades)
+• Conservador: 0.0001 ETH (~{int(current_balance / 0.0001)} trades)
+• Moderado: 0.0005 ETH (~{int(current_balance / 0.0005)} trades)
+• Agressivo: 0.001 ETH (~{int(current_balance / 0.001)} trades)
 
 ⚠️ **Nota:** Alterações requerem reinicialização do bot
 """
@@ -815,7 +815,7 @@ Para analisar um token específico, envie o comando:
 
 ⚠️ **Alertas:**
 • Conflito de instância Telegram resolvido
-• Saldo WETH atualizado com sucesso
+• Saldo ETH atualizado com sucesso
 
 📊 **Estatísticas da sessão:**
 • Tokens processados: {self.monitoring_stats['tokens_analyzed']}
@@ -898,23 +898,23 @@ Para analisar um token específico, envie o comando:
         """Verifica se o bot está rodando"""
         return self.sniper_bot and self.sniper_bot.running
     
-    def get_weth_balance(self) -> float:
-        """Obtém saldo WETH com diagnóstico"""
+    def get_eth_balance(self) -> float:
+        """Obtém saldo ETH com diagnóstico"""
         if self.sniper_bot:
-            balance = self.sniper_bot._get_weth_balance_sync()
+            balance = self.sniper_bot._get_eth_balance_sync()
             
             # Diagnóstico: se saldo for 0, forçar atualização
             if balance == 0.0:
-                print("⚠️ Saldo WETH zerado detectado - forçando atualização...")
+                print("⚠️ Saldo ETH zerado detectado - forçando atualização...")
                 # Limpar cache e tentar novamente
-                if hasattr(self.sniper_bot, '_weth_balance_cache'):
-                    delattr(self.sniper_bot, '_weth_balance_cache')
-                if hasattr(self.sniper_bot, '_weth_balance_time'):
-                    delattr(self.sniper_bot, '_weth_balance_time')
+                if hasattr(self.sniper_bot, '_eth_balance_cache'):
+                    delattr(self.sniper_bot, '_eth_balance_cache')
+                if hasattr(self.sniper_bot, '_eth_balance_time'):
+                    delattr(self.sniper_bot, '_eth_balance_time')
                 
                 # Tentar leitura novamente
-                balance = self.sniper_bot._get_weth_balance_sync()
-                print(f"🔄 Saldo após atualização forçada: {balance:.6f} WETH")
+                balance = self.sniper_bot._get_eth_balance_sync()
+                print(f"🔄 Saldo após atualização forçada: {balance:.6f} ETH")
             
             return balance
         return 0.0
@@ -931,7 +931,7 @@ Para analisar um token específico, envie o comando:
     
     def get_total_balance(self) -> float:
         """Obtém saldo total estimado"""
-        return self.get_weth_balance() + self.get_eth_balance()
+        return self.get_eth_balance() + self.get_eth_balance()
     
     async def send_notification(self, message: str, priority: str = "normal"):
         """Envia notificação para usuários autorizados com rate limiting"""
@@ -1005,7 +1005,7 @@ Para analisar um token específico, envie o comando:
 {emoji} **COMPRA EXECUTADA**
 
 🪙 **Token:** {token_name}
-💰 **Valor:** {amount:.6f} WETH
+💰 **Valor:** {amount:.6f} ETH
 💲 **Preço:** {price:.8f} ETH
 ⏰ **Horário:** {datetime.now().strftime('%H:%M:%S')}
 
@@ -1018,7 +1018,7 @@ Para analisar um token específico, envie o comando:
 {emoji} **VENDA EXECUTADA**
 
 🪙 **Token:** {token_name}
-💰 **Valor:** {amount:.6f} WETH
+💰 **Valor:** {amount:.6f} ETH
 📈 **Lucro:** {profit:.6f} ETH
 ⏰ **Horário:** {datetime.now().strftime('%H:%M:%S')}
 

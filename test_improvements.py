@@ -19,7 +19,7 @@ class MockConfig:
     BASE_RPC_BACKUP = "https://base-mainnet.public.blastapi.io"
     WALLET_ADDRESS = "0x1234567890123456789012345678901234567890"
     PRIVATE_KEY = "0x" + "1" * 64
-    WETH_ADDRESS = "0x4200000000000000000000000000000000000006"
+    ETH_ADDRESS = "0x4200000000000000000000000000000000000006"
     EMERGENCY_MODE_THRESHOLD = 0.0001
     EMERGENCY_TRADE_AMOUNT = 0.000050
     EMERGENCY_GAS_PRICE = 10
@@ -70,7 +70,7 @@ def test_dex_handler_improvements():
         # Patch das configurações
         with patch('dex_handler.BASE_RPC_BACKUP', MockConfig.BASE_RPC_BACKUP):
             with patch('dex_handler.WALLET_ADDRESS', MockConfig.WALLET_ADDRESS):
-                with patch('dex_handler.WETH_ADDRESS', MockConfig.WETH_ADDRESS):
+                with patch('dex_handler.ETH_ADDRESS', MockConfig.ETH_ADDRESS):
                     dex_handler = DEXHandler(mock_web3)
                     
                     # Testar inicialização
@@ -110,7 +110,7 @@ async def test_emergency_mode():
         
         if emergency_mode:
             trade_amount = MockConfig.EMERGENCY_TRADE_AMOUNT
-            print(f"   Trade amount reduzido: {trade_amount:.6f} WETH")
+            print(f"   Trade amount reduzido: {trade_amount:.6f} ETH")
             print(f"   Gas price emergência: {MockConfig.EMERGENCY_GAS_PRICE} gwei")
         
         print(f"{Fore.GREEN}✅ Modo Emergência: OK{Style.RESET_ALL}")
@@ -144,9 +144,9 @@ def test_config_improvements():
         print(f"{Fore.RED}❌ Configurações: {e}{Style.RESET_ALL}")
         return False
 
-async def test_weth_balance_cache():
-    """Testa o cache de saldo WETH"""
-    print(f"{Fore.CYAN}🧪 Testando Cache de Saldo WETH...{Style.RESET_ALL}")
+async def test_eth_balance_cache():
+    """Testa o cache de saldo ETH"""
+    print(f"{Fore.CYAN}🧪 Testando Cache de Saldo ETH...{Style.RESET_ALL}")
     
     try:
         # Mock Web3 e contratos
@@ -162,7 +162,7 @@ async def test_weth_balance_cache():
         
         with patch('dex_handler.BASE_RPC_BACKUP', MockConfig.BASE_RPC_BACKUP):
             with patch('dex_handler.WALLET_ADDRESS', MockConfig.WALLET_ADDRESS):
-                with patch('dex_handler.WETH_ADDRESS', MockConfig.WETH_ADDRESS):
+                with patch('dex_handler.ETH_ADDRESS', MockConfig.ETH_ADDRESS):
                     with patch('dex_handler.BASE_RPC_LIMITER') as mock_limiter:
                         mock_limiter.acquire = AsyncMock()
                         mock_limiter.handle_success = Mock()
@@ -170,22 +170,22 @@ async def test_weth_balance_cache():
                         dex_handler = DEXHandler(mock_web3)
                         
                         # Primeira chamada - deve fazer requisição
-                        balance1 = await dex_handler.get_weth_balance()
-                        print(f"   Primeira chamada: {balance1:.6f} WETH")
+                        balance1 = await dex_handler.get_eth_balance()
+                        print(f"   Primeira chamada: {balance1:.6f} ETH")
                         
                         # Segunda chamada - deve usar cache
-                        balance2 = await dex_handler.get_weth_balance()
-                        print(f"   Segunda chamada (cache): {balance2:.6f} WETH")
+                        balance2 = await dex_handler.get_eth_balance()
+                        print(f"   Segunda chamada (cache): {balance2:.6f} ETH")
                         
                         # Verificar se usou cache
                         cache_used = balance1 == balance2
                         print(f"   Cache funcionando: {'✅' if cache_used else '❌'}")
         
-        print(f"{Fore.GREEN}✅ Cache WETH: OK{Style.RESET_ALL}")
+        print(f"{Fore.GREEN}✅ Cache ETH: OK{Style.RESET_ALL}")
         return True
         
     except Exception as e:
-        print(f"{Fore.RED}❌ Cache WETH: {e}{Style.RESET_ALL}")
+        print(f"{Fore.RED}❌ Cache ETH: {e}{Style.RESET_ALL}")
         return False
 
 async def main():
@@ -198,7 +198,7 @@ async def main():
         ("DEX Handler", test_dex_handler_improvements()),
         ("Modo Emergência", await test_emergency_mode()),
         ("Configurações", test_config_improvements()),
-        ("Cache WETH", await test_weth_balance_cache()),
+        ("Cache ETH", await test_eth_balance_cache()),
     ]
     
     passed = 0
@@ -228,7 +228,7 @@ async def main():
     print("• Modo de emergência para saldos baixos")
     print("• Retry logic com backoff inteligente")
     print("• Tratamento específico para 429 errors")
-    print("• Conversão automática WETH->ETH")
+    print("• Conversão automática ETH->ETH")
     print("• Logs detalhados para debugging")
 
 if __name__ == "__main__":

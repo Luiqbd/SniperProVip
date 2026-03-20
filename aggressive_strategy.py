@@ -1,6 +1,6 @@
 """
 Estratégia Agressiva para Crescimento Rápido
-Otimizada para saldos pequenos (0.001990 WETH) com foco em lucros rápidos e altos
+Otimizada para saldos pequenos (0.001990 ETH) com foco em lucros rápidos e altos
 """
 
 import asyncio
@@ -14,15 +14,15 @@ from config import *
 class AggressiveStrategy:
     def __init__(self, sniper_bot):
         self.sniper_bot = sniper_bot
-        self.initial_balance = INITIAL_WETH_BALANCE
-        self.current_balance = INITIAL_WETH_BALANCE
+        self.initial_balance = INITIAL_ETH_BALANCE
+        self.current_balance = INITIAL_ETH_BALANCE
         self.profit_history = []
         self.trade_history = []
         self.successful_trades = 0
         self.failed_trades = 0
         
         # Configurações agressivas para crescimento rápido
-        self.base_trade_amount = TRADE_AMOUNT_WETH  # 0.000498 WETH (25% do saldo)
+        self.base_trade_amount = TRADE_AMOUNT_ETH  # 0.000498 ETH (25% do saldo)
         self.max_trade_percentage = 0.50  # Até 50% do saldo por trade (muito agressivo)
         self.profit_target = 0.15  # 15% de lucro por trade (mais rápido)
         self.stop_loss = 0.15  # 15% de stop loss (controlado)
@@ -82,10 +82,10 @@ class AggressiveStrategy:
         
     def calculate_dynamic_trade_amount(self) -> float:
         """Calcula valor dinâmico do trade baseado no saldo atual e performance"""
-        current_weth = self.sniper_bot._weth_balance_cache or self.current_balance
+        current_eth = self.sniper_bot._eth_balance_cache or self.current_balance
         
         # Base: 20% do saldo atual
-        base_amount = current_weth * 0.20
+        base_amount = current_eth * 0.20
         
         # Ajustar baseado na performance recente
         if self.consecutive_wins >= 2:
@@ -100,12 +100,12 @@ class AggressiveStrategy:
             print(f"⚠️ Scaling DOWN: {scaling:.2f}x após {self.consecutive_losses} perdas")
         
         # Limites de segurança
-        max_amount = current_weth * self.max_trade_percentage
+        max_amount = current_eth * self.max_trade_percentage
         min_amount = MIN_TRADE_AMOUNT
         
         final_amount = max(min_amount, min(base_amount, max_amount))
         
-        print(f"💰 Trade dinâmico: {final_amount:.6f} WETH ({(final_amount/current_weth)*100:.1f}% do saldo)")
+        print(f"💰 Trade dinâmico: {final_amount:.6f} ETH ({(final_amount/current_eth)*100:.1f}% do saldo)")
         return final_amount
     
     def should_buy_token(self, token_address: str, token_info: Dict, ai_score: int, traditional_score: float) -> Tuple[bool, str]:
@@ -155,8 +155,8 @@ class AggressiveStrategy:
         
         # Verificar se temos saldo suficiente
         trade_amount = self.calculate_dynamic_trade_amount()
-        current_weth = self.sniper_bot._weth_balance_cache or self.current_balance
-        if trade_amount > current_weth * 0.9:  # Deixar 10% para gas
+        current_eth = self.sniper_bot._eth_balance_cache or self.current_balance
+        if trade_amount > current_eth * 0.9:  # Deixar 10% para gas
             return False, "Saldo insuficiente para trade"
         
         should_buy = final_score >= min_score
@@ -195,7 +195,7 @@ class AggressiveStrategy:
             }
             
             print(f"🎯 Estratégia para {token_info.get('symbol', 'UNK')}:")
-            print(f"   💰 Valor: {trade_amount:.6f} WETH")
+            print(f"   💰 Valor: {trade_amount:.6f} ETH")
             print(f"   🎯 Lucro alvo: {self.profit_target*100:.0f}%")
             print(f"   🛑 Stop loss: {self.stop_loss*100:.0f}%")
             print(f"   ⚡ Saída rápida: {self.quick_profit_threshold*100:.0f}% em {self.quick_exit_time}s")
@@ -376,7 +376,7 @@ class AggressiveStrategy:
                 print(f"✅ Venda executada com sucesso! TX: {sell_tx_hash[:20]}...")
                 
                 # Calcular lucro/prejuízo baseado na transação
-                # Obter valor recebido em WETH
+                # Obter valor recebido em ETH
                 try:
                     received_wei = best_price
                     received_eth = float(self.sniper_bot.web3.from_wei(received_wei, 'ether')) if received_wei else 0
@@ -452,7 +452,7 @@ class AggressiveStrategy:
         total_profit = sum(self.profit_history)
         avg_profit = (total_profit / len(self.profit_history)) if self.profit_history else 0
         
-        current_balance = self.sniper_bot._weth_balance_cache or self.current_balance
+        current_balance = self.sniper_bot._eth_balance_cache or self.current_balance
         roi = ((current_balance - self.initial_balance) / self.initial_balance * 100) if self.initial_balance > 0 else 0
         
         return {
@@ -477,8 +477,8 @@ class AggressiveStrategy:
         print("\n" + "="*60)
         print("📊 STATUS DA ESTRATÉGIA AGRESSIVA")
         print("="*60)
-        print(f"💰 Saldo inicial: {stats['initial_balance']:.6f} WETH")
-        print(f"💰 Saldo atual: {stats['current_balance']:.6f} WETH")
+        print(f"💰 Saldo inicial: {stats['initial_balance']:.6f} ETH")
+        print(f"💰 Saldo atual: {stats['current_balance']:.6f} ETH")
         print(f"📈 ROI: {stats['roi']:+.2f}%")
         print(f"🎯 Trades: {stats['total_trades']} (✅{stats['successful_trades']} ❌{stats['failed_trades']})")
         print(f"🏆 Taxa de sucesso: {stats['win_rate']:.1f}%")
