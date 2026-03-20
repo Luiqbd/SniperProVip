@@ -540,16 +540,14 @@ class DEXHandler:
             
             min_eth_for_gas = 0.00005
             
-            # SEMPRE tentar conversão se ETH < 0.00005
+            # Verificar se tem ETH suficiente para gas
             if eth_balance_eth < min_eth_for_gas:
-                print(f"⚠️ ETH baixo ({eth_balance_eth:.6f}) - forçando conversão WETH->ETH")
-                if not await self.convert_weth_to_eth_if_needed(min_eth_for_gas):
-                    print("❌ Não foi possível obter ETH suficiente para gas")
+                print(f"⚠️ ETH baixo ({eth_balance_eth:.6f}) - verificando se é possível continuar...")
+                # Não tenta mais converter WETH, apenas verifica se tem ETH suficiente
+                # Se ETH está muito baixo, a transação provavelmente vai falhar de qualquer forma
+                if eth_balance_eth < 0.000001:
+                    print("❌ ETH insuficiente para transação")
                     return None
-                # Atualizar saldo ETH
-                eth_balance = web3_instance.eth.get_balance(WALLET_ADDRESS)
-                eth_balance_eth = float(web3_instance.from_wei(eth_balance, 'ether'))
-                print(f"💰 Saldo ETH após conversão: {eth_balance_eth:.6f}")
             
             # Verificar checksum do router
             router_address = web3_instance.to_checksum_address(router_address)
