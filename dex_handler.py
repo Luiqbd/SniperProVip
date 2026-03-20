@@ -597,11 +597,13 @@ class DEXHandler:
                 gas_price = web3_instance.to_wei(0.01, 'gwei')
                 
                 # Usar swapExactETHForTokens - envia ETH diretamente!
+                # Parâmetros: amountIn, amountOutMin, path, to, deadline
                 transaction = router_contract.functions.swapExactETHForTokens(
-                    amount_out_min,
-                    path,
-                    WALLET_ADDRESS,
-                    deadline
+                    amount_in,        # amountIn (quantidade de ETH para trocar)
+                    amount_out_min,  # amountOutMin (mínimo de tokens aceitos)
+                    path,            # path (ETH -> token)
+                    WALLET_ADDRESS,  # to (endereço do receptor)
+                    deadline         # deadline (prazo máximo)
                 ).build_transaction({
                     'from': WALLET_ADDRESS,
                     'gas': 150000,  # Reduzido para Base
