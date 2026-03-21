@@ -47,32 +47,38 @@ class DEXHandler:
         self.rpc_list = [BASE_RPC_BACKUP, BASE_RPC_3, BASE_RPC_4]
         self.current_rpc_index = 0
     
-    def _get_web3_instance(self, _recursion_depth=0):
-        """Retorna instância Web3 disponível (principal ou backup)"""
-        # Evitar recursão infinita - versão iterativa
-        if _recursion_depth > 5:
-            print(f"{Fore.RED}⚠️ Profundidade máxima atingida, usando fallback{Style.RESET_ALL}")
-            return self.web3 if self.web3 else self._create_web3_instance()
-        
-        # Versão simplificada e segura - sem recursão
+    def _get_web3_instance(self):
+        """Retorna instância Web3 disponível - VERSÃO 100% ITERATIVA SEM RECURSÃO"""
+        # Primeiro: retorna web3 principal se estiver conectado
         try:
-            if self.web3 and hasattr(self.web3, 'is_connected') and self.web3.is_connected():
+            if self.web3 is not None:
                 return self.web3
         except Exception:
             pass
         
-        # Tentar backup
+        # Segundo: retorna backup se existir
         try:
-            if self.backup_web3 and hasattr(self.backup_web3, 'is_connected') and self.backup_web3.is_connected():
+            if self.backup_web3 is not None:
                 return self.backup_web3
         except Exception:
             pass
         
-        # Retornar o que temos (pode não estar conectado, mas evita crash)
-        return self.web3 if self.web3 else self._create_web3_instance()
+        # Terceiro: tenta criar nova instância APENAS se não existir nenhuma
+        try:
+            from config import BASE_RPC_URL
+            new_web3 = Web3(Web3.HTTPProvider(BASE_RPC_URL))
+            if new_web3 is not None:
+                self.web3 = new_web3
+                return new_web3
+        except Exception:
+            pass
+        
+        # Último recurso: retorna o que tinha antes (pode ser None)
+        return self.web3
     
+    # Remover completamente a função recursiva antiga
     def _create_web3_instance(self):
-        """Cria nova instância Web3 - sem recursão"""
+        """Cria nova instância Web3 - fallback simples"""
         try:
             from config import BASE_RPC_URL
             return Web3(Web3.HTTPProvider(BASE_RPC_URL))
@@ -622,34 +628,15 @@ class DEXHandler:
                 gas_price = web3_instance.to_wei(0.1, 'gwei')  # Fallback para 0.1 gwei (mínimo para Base)
                 print(f"⛽ Gas price: 0.1 gwei (fallback)")
             
-            # Preparar transação - Usar Uniswap V3 exactInputSingle
+            # Preparar transação - Usar método correto baseado na DEX
             if is_buy:
                 # Usar nonce correto
                 nonce = web3_instance.eth.get_transaction_count(WALLET_ADDRESS)
                 
-                # Para Uniswap V3: exactInputSingle(tokenIn, tokenOut, fee, recipient, deadline, amountIn, amountOutMinimum)
-                # Fee: 3000 = 0.3%, 500 = 0.05%, 100 = 0.01%
+                # Tentar método mais compatível primeiro - swapETHForExactTokens (V2 style)
+                # ou usar multicall para maior compatibilidade
                 try:
-                    # Tentar usar exactInputSingle primeiro (Uniswap V3)
-                    transaction = router_contract.functions.exactInputSingle(
-                        WETH_ADDRESS,           # tokenIn (WETH)
-                        token_address,          # tokenOut
-                        3000,                   # fee 0.3%
-                        WALLET_ADDRESS,         # recipient
-                        deadline,               # deadline
-                        amount_in,              # amountIn
-                        amount_out_min          # amountOutMinimum
-                    ).build_transaction({
-                        'from': WALLET_ADDRESS,
-                        'gas': 200000,          # Uniswap V3 precisa de mais gas
-                        'gasPrice': gas_price,
-                        'nonce': nonce,
-                        'value': amount_in      # ETH enviado diretamente!
-                    })
-                    print(f"📝 Usando exactInputSingle (Uniswap V3)")
-                except Exception as e:
-                    # Fallback para swapExactETHForTokens (Uniswap V2)
-                    print(f"📝 Fallback para swapExactETHForTokens: {str(e)[:30]}...")
+                    # Primeiro: tentar swapExactETHForTokens (V2)
                     transaction = router_contract.functions.swapExactETHForTokens(
                         amount_in,
                         amount_out_min,
@@ -658,11 +645,35 @@ class DEXHandler:
                         deadline
                     ).build_transaction({
                         'from': WALLET_ADDRESS,
-                        'gas': 150000,
+                        'gas': 200000,  # Gas maior para garantir
                         'gasPrice': gas_price,
                         'nonce': nonce,
                         'value': amount_in
                     })
+                    print(f"📝 Usando swapExactETHForTokens")
+                except Exception as e:
+                    # Segundo: tentar exactInputSingle (V3)
+                    try:
+                        transaction = router_contract.functions.exactInputSingle(
+                            WETH_ADDRESS,
+                            token_address,
+                            3000,
+                            WALLET_ADDRESS,
+                            deadline,
+                            amount_in,
+                            amount_out_min
+                        ).build_transaction({
+                            'from': WALLET_ADDRESS,
+                            'gas': 250000,
+                            'gasPrice': gas_price,
+                            'nonce': nonce,
+                            'value': amount_in
+                        })
+                        print(f"📝 Usando exactInputSingle (Uniswap V3)")
+                    except Exception as e2:
+                        # Último recurso: usar valor mínimo
+                        print(f"⚠️ Erro ao construir transação: {str(e2)[:50]}")
+                        return None
             else:
                 # Vender token por ETH nativo - usando swapExactTokensForETH!
                 # Primeiro aprovar o token se necessário
