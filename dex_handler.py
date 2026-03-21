@@ -47,25 +47,37 @@ class DEXHandler:
         self.rpc_list = [BASE_RPC_BACKUP, BASE_RPC_3, BASE_RPC_4]
         self.current_rpc_index = 0
     
-    def _get_web3_instance(self):
+    def _get_web3_instance(self, _recursion_depth=0):
         """Retorna instância Web3 disponível (principal ou backup)"""
-        if self.web3.is_connected():
+        # Evitar recursão infinita
+        if _recursion_depth > 3:
+            print(f"{Fore.RED}⚠️ Profundidade máxima de recursão atingida{Style.RESET_ALL}")
             return self.web3
-        elif self.backup_web3 and self.backup_web3.is_connected():
-            print(f"{Fore.YELLOW}🔄 Usando RPC backup{Style.RESET_ALL}")
-            return self.backup_web3
-        else:
-            # Tentar outros RPCs
-            for rpc in self.rpc_list:
-                try:
-                    temp_web3 = Web3(Web3.HTTPProvider(rpc))
-                    if temp_web3.is_connected():
-                        print(f"{Fore.YELLOW}🔄 Usando RPC alternativo: {rpc[:30]}...{Style.RESET_ALL}")
-                        self.backup_web3 = temp_web3
-                        return temp_web3
-                except:
-                    continue
-            return self.web3  # Fallback para principal mesmo se não conectado
+        
+        try:
+            if self.web3.is_connected():
+                return self.web3
+        except Exception:
+            pass
+            
+        try:
+            if self.backup_web3 and self.backup_web3.is_connected():
+                print(f"{Fore.YELLOW}🔄 Usando RPC backup{Style.RESET_ALL}")
+                return self.backup_web3
+        except Exception:
+            pass
+            
+        # Tentar outros RPCs
+        for rpc in self.rpc_list:
+            try:
+                temp_web3 = Web3(Web3.HTTPProvider(rpc))
+                if temp_web3.is_connected():
+                    print(f"{Fore.YELLOW}🔄 Usando RPC alternativo: {rpc[:30]}...{Style.RESET_ALL}")
+                    self.backup_web3 = temp_web3
+                    return temp_web3
+            except:
+                continue
+        return self.web3  # Fallback para principal mesmo se não conectado
     
     def _get_cached_balance(self, cache_key: str, force_refresh: bool = False):
         """Obtém saldo do cache se válido"""
@@ -583,13 +595,13 @@ class DEXHandler:
             try:
                 # Tentar obter gas price atual da rede
                 gas_price_suggested = web3_instance.eth.gas_price
-                gas_price_wei = int(gas_price_suggested * 1.1)  # 10% acima do mercado
-                # Mas não menos que 0.01 gwei e não mais que 0.1 gwei
-                gas_price = max(web3_instance.to_wei(0.01, 'gwei'), min(gas_price_wei, web3_instance.to_wei(0.1, 'gwei')))
+                gas_price_wei = int(gas_price_suggested * 1.2)  # 20% acima do mercado
+                # Mas não menos que 0.1 gwei (mínimo razoável para Base) e não mais que 1 gwei
+                gas_price = max(web3_instance.to_wei(0.1, 'gwei'), min(gas_price_wei, web3_instance.to_wei(1, 'gwei')))
                 print(f"⛽ Gas price: {web3_instance.from_wei(gas_price, 'gwei'):.4f} gwei (ajustado)")
             except:
-                gas_price = web3_instance.to_wei(0.02, 'gwei')  # Fallback para 0.02 gwei
-                print(f"⛽ Gas price: 0.02 gwei (fallback)")
+                gas_price = web3_instance.to_wei(0.1, 'gwei')  # Fallback para 0.1 gwei (mínimo para Base)
+                print(f"⛽ Gas price: 0.1 gwei (fallback)")
             
             # Preparar transação
             if is_buy:
@@ -598,9 +610,6 @@ class DEXHandler:
                 
                 # Usar nonce correto
                 nonce = web3_instance.eth.get_transaction_count(WALLET_ADDRESS)
-                
-                # SEMPRE gas baixo
-                gas_price = web3_instance.to_wei(0.01, 'gwei')
                 
                 # Usar swapExactETHForTokens - envia ETH diretamente!
                 # Parâmetros: amountIn, amountOutMin, path, to, deadline
@@ -660,7 +669,7 @@ class DEXHandler:
                 ).build_transaction({
                     'from': WALLET_ADDRESS,
                     'gas': DEFAULT_GAS_LIMIT,
-                    'gasPrice': web3_instance.to_wei(0.01, 'gwei'),  # SEMPRE baixo
+                    'gasPrice': gas_price,  # Usar gas price dinâmico
                     'nonce': web3_instance.eth.get_transaction_count(WALLET_ADDRESS)
                 })
             
