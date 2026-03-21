@@ -29,6 +29,21 @@ except ImportError as e:
     print(f"⚠️ Módulos avançados não disponíveis: {e}")
     ADVANCED_MODULES = False
 
+# Dashboard API Integration
+try:
+    from dashboard.api import update_bot_status, record_trade, update_balance, update_positions, update_risk, start_api_server
+    DASHBOARD_ENABLED = True
+except ImportError as e:
+    print(f"⚠️ Dashboard não disponível: {e}")
+    DASHBOARD_ENABLED = False
+    # Mock functions if not available
+    def update_bot_status(s): pass
+    def record_trade(*args): pass
+    def update_balance(b): pass
+    def update_positions(p): pass
+    def update_risk(*args): pass
+    def start_api_server(): pass
+
 # Inicializar colorama
 init(autoreset=True)
 
