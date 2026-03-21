@@ -320,6 +320,19 @@ class SniperBot:
                 print("🔍 Monitorando tokens...")
                 print("💡 Aguardando saldo suficiente")
             
+            # ==========================================
+            # INICIAR API DO DASHBOARD
+            # ==========================================
+            if DASHBOARD_ENABLED:
+                try:
+                    print(f"{Fore.CYAN}🎯 Iniciando API do Dashboard...{Style.RESET_ALL}")
+                    start_api_server()
+                    update_bot_status('RUNNING')
+                    update_balance(eth_balance)
+                    print(f"{Fore.GREEN}✅ API do Dashboard ativa!{Style.RESET_ALL}")
+                except Exception as e:
+                    print(f"{Fore.YELLOW}⚠️ API do Dashboard não disponível: {e}{Style.RESET_ALL}")
+            
             return True
             
         except Exception as e:
@@ -1549,6 +1562,11 @@ class SniperBot:
         self.running = False
         if self.token_monitor:
             self.token_monitor.stop_monitoring()
+        if DASHBOARD_ENABLED:
+            try:
+                update_bot_status('STOPPED')
+            except:
+                pass
         print(f"{Fore.RED}⏹️ Sniper Bot parado!{Style.RESET_ALL}")
 
 # Função principal para executar o bot

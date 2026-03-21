@@ -10,7 +10,7 @@ Dashboard web avançado para monitorar seu Sniper Bot em tempo real!
    - Vá em **Settings → Pages**
    - Source: `Deploy from a branch`
    - Branch: `main`
-   - Folder: `/ (root)`
+   - Folder: `/dashboard`
 
 2. Acesse: `https://seu-usuario.github.io/SniperProVip/dashboard/`
 
@@ -23,6 +23,34 @@ python3 api.py
 ```
 
 Acesse: `http://localhost:5000`
+
+## 🔌 Conectando ao Bot no Render
+
+### Passo 1: Configure a API URL
+
+Abra o arquivo `dashboard/index.html` e altere a linha:
+
+```javascript
+// NO TOPO DO ARQUIVO:
+const API_URL = 'https://seu-sniper-bot.onrender.com';
+```
+
+Substitua `https://seu-sniper-bot.onrender.com` pela URL real do seu bot no Render!
+
+### Passo 2: O Bot precisa rodar a API
+
+O servidor API já está integrado! Quando o bot inicia, a API também starta automaticamente na porta 5000.
+
+### Passo 3: Deploy
+
+1. Faça deploy normal no Render
+2. O Render expõe automaticamente a porta 5000
+3. Atualize o `API_URL` no dashboard com a URL do Render
+
+### Exemplo de URL:
+```
+https://sniper-pro-vip.onrender.com
+```
 
 ## 📁 Arquivos
 

@@ -470,9 +470,14 @@
     </main>
 
     <script>
+        // Configuração - Altere para seu endpoint
+        const API_URL = window.location.hostname === 'localhost' 
+            ? 'http://localhost:5000' 
+            : ''; // Configure sua API do Render aqui!
+        
         let botData = {
-            status: 'RUNNING',
-            ethBalance: 0.004512,
+            status: 'STOPPED',
+            ethBalance: 0,
             totalTrades: 0,
             winRate: 0,
             dailyProfit: 0,
@@ -486,6 +491,7 @@
 
         let logs = [];
         let autoScroll = true;
+        let isConnected = false;
 
         function addLog(level, message) {
             const time = new Date().toLocaleTimeString('pt-BR');
@@ -579,13 +585,77 @@
             `).join('');
         }
 
+        // ============ API FUNCTIONS ============
+        async function fetchFromAPI(endpoint) {
+            if (!API_URL) return null;
+            try {
+                const response = await fetch(`${API_URL}${endpoint}`);
+                if (response.ok) {
+                    return await response.json();
+                }
+            } catch (e) {
+                console.log('API não disponível:', e.message);
+            }
+            return null;
+        }
+
+        async function syncWithAPI() {
+            if (!API_URL) return;
+            
+            // Fetch status
+            const status = await fetchFromAPI('/api/status');
+            if (status) {
+                isConnected = true;
+                botData.status = status.bot_status || 'STOPPED';
+                botData.ethBalance = status.eth_balance || 0;
+                botData.totalTrades = status.total_trades || 0;
+                botData.winRate = status.win_rate || 0;
+                botData.dailyProfit = status.daily_pnl || 0;
+                botData.activePositions = status.active_positions || 0;
+                botData.riskLevel = status.risk_level || 'LOW';
+                botData.consecutiveLosses = status.consecutive_losses || 0;
+                botData.circuitBreaker = status.circuit_breaker || false;
+                botData.trades = status.trades || [];
+                botData.positions = status.positions || [];
+                
+                updateUI();
+                document.getElementById('connectionStatus').textContent = 'Conectado';
+                document.getElementById('connectionStatus').parentElement.style.borderColor = 'rgba(0, 210, 106, 0.3)';
+            } else {
+                isConnected = false;
+                document.getElementById('connectionStatus').textContent = 'Desconectado';
+            }
+
+            // Fetch logs
+            const apiLogs = await fetchFromAPI('/api/logs');
+            if (apiLogs && apiLogs.length > 0) {
+                logs = apiLogs.slice(-100); // Last 100 logs
+                renderLogs();
+            }
+        }
+
+        // ============ ACTIONS ============
         function stopBot() { botData.status = 'STOPPED'; updateUI(); addLog('WARNING', 'Bot paralisado pelo usuário'); showNotification('Bot paralizado!', 'error'); }
         function startBot() { botData.status = 'RUNNING'; updateUI(); addLog('INFO', 'Bot iniciado!'); showNotification('Bot iniciado!', 'success'); }
         function resetPositions() { botData.positions = []; botData.activePositions = 0; updateUI(); addLog('INFO', 'Posições resetadas'); showNotification('Posições resetadas!', 'success'); }
         function forceTrade() { addLog('WARNING', 'Forçando verificação de trade...'); showNotification('Verificando oportunidades...', 'warning'); }
         function sellPosition(token) { addLog('INFO', `Vendendo posição: ${token}`); botData.positions = botData.positions.filter(p => p.token !== token); botData.activePositions = botData.positions.length; updateUI(); showNotification(`${token} vendido!`, 'success'); }
-        function refreshTrades() { addLog('INFO', 'Atualizando trades...'); showNotification('Trades atualizados!', 'success'); }
-        function refreshPositions() { addLog('INFO', 'Atualizando posições...'); showNotification('Posições atualizadas!', 'success'); }
+        
+        async function refreshTrades() {
+            if (API_URL) {
+                await syncWithAPI();
+            }
+            addLog('INFO', 'Atualizando trades...');
+            showNotification('Trades atualizados!', 'success');
+        }
+        
+        async function refreshPositions() {
+            if (API_URL) {
+                await syncWithAPI();
+            }
+            addLog('INFO', 'Atualizando posições...');
+            showNotification('Posições atualizadas!', 'success');
+        }
 
         function showNotification(message, type) {
             const existing = document.querySelector('.notification');
@@ -650,13 +720,28 @@
 
         function init() {
             addLog('INFO', '🎯 Sniper Bot Dashboard iniciado!');
-            addLog('INFO', '🌐 Conectado à Base Network');
-            addLog('INFO', '💼 Carteira configurada');
-            addLog('INFO', '🤖 Módulos avançados carregados');
-            addLog('INFO', '🛡️ Risk Manager ativo');
-            addLog('INFO', '🔍 Monitoramento iniciado');
+            
+            if (API_URL) {
+                addLog('INFO', '🔗 Tentando conectar à API...');
+                // Try to sync with API
+                syncWithAPI().then(() => {
+                    if (isConnected) {
+                        addLog('SUCCESS', '✅ Conectado ao bot!');
+                    } else {
+                        addLog('WARNING', '⚠️ API não encontrada - modo demonstração');
+                    }
+                });
+                
+                // Sync every 5 seconds
+                setInterval(syncWithAPI, 5000);
+            } else {
+                addLog('WARNING', '⚠️ API não configurada - modo demonstração');
+                addLog('INFO', '💡 Configure a URL da API no código HTML');
+                // Demo mode
+                setInterval(simulateBotActivity, 3000);
+            }
+            
             updateUI();
-            setInterval(simulateBotActivity, 3000);
             console.log('🎯 Sniper Bot Dashboard loaded!');
         }
         init();
