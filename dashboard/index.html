@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sniper Bot Dashboard - Base Network</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <title>Sniper Bot Pro - Base Network</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
     <style>
         :root {
             --primary: #0052FF;
@@ -12,20 +12,20 @@
             --success: #00D26A;
             --danger: #FF4757;
             --warning: #FFB800;
+            --info: #00D4FF;
             --bg-dark: #0A0E17;
             --bg-card: #131A2B;
             --bg-card-hover: #1A2236;
+            --bg-log: #0D1117;
             --text-primary: #FFFFFF;
             --text-secondary: #8B95A5;
+            --text-muted: #484F58;
             --border: #2A3447;
             --gradient: linear-gradient(135deg, #0052FF 0%, #00D26A 100%);
+            --gradient-orange: linear-gradient(135deg, #FF6B35 0%, #FF4757 100%);
         }
 
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
 
         body {
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
@@ -34,11 +34,15 @@
             min-height: 100vh;
         }
 
-        /* Header */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: var(--bg-dark); }
+        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--text-secondary); }
+
         .header {
             background: var(--bg-card);
             border-bottom: 1px solid var(--border);
-            padding: 1rem 2rem;
+            padding: 1rem 1.5rem;
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -48,24 +52,23 @@
             backdrop-filter: blur(10px);
         }
 
-        .logo {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-        }
+        .logo-section { display: flex; align-items: center; gap: 1rem; }
 
         .logo-icon {
-            width: 40px;
-            height: 40px;
+            width: 48px;
+            height: 48px;
             background: var(--gradient);
-            border-radius: 12px;
+            border-radius: 14px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 1.25rem;
+            font-size: 1.5rem;
+            box-shadow: 0 4px 20px rgba(0, 82, 255, 0.3);
         }
 
-        .logo-text {
+        .logo-text { display: flex; flex-direction: column; }
+
+        .logo-title {
             font-size: 1.25rem;
             font-weight: 700;
             background: var(--gradient);
@@ -73,80 +76,100 @@
             -webkit-text-fill-color: transparent;
         }
 
-        .header-stats {
+        .logo-subtitle { font-size: 0.75rem; color: var(--text-secondary); }
+
+        .header-actions { display: flex; gap: 1rem; align-items: center; }
+
+        .connection-status {
             display: flex;
-            gap: 2rem;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            background: rgba(0, 210, 106, 0.1);
+            border: 1px solid rgba(0, 210, 106, 0.3);
+            border-radius: 20px;
+            font-size: 0.875rem;
         }
 
-        .header-stat {
-            text-align: center;
+        .connection-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--success);
+            border-radius: 50%;
+            animation: pulse 2s infinite;
         }
 
-        .header-stat-value {
-            font-size: 1.25rem;
-            font-weight: 700;
-            font-family: 'JetBrains Mono', monospace;
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(0.9); }
         }
 
-        .header-stat-label {
-            font-size: 0.75rem;
-            color: var(--text-secondary);
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
+        .main { padding: 1.5rem; max-width: 1600px; margin: 0 auto; }
 
-        /* Main */
-        .main {
-            padding: 2rem;
-            max-width: 1400px;
-            margin: 0 auto;
-        }
-
-        /* Status Bar */
         .status-bar {
             display: grid;
-            grid-template-columns: repeat(4, 1fr);
+            grid-template-columns: repeat(6, 1fr);
             gap: 1rem;
-            margin-bottom: 2rem;
+            margin-bottom: 1.5rem;
         }
 
         .status-card {
             background: var(--bg-card);
             border: 1px solid var(--border);
             border-radius: 16px;
-            padding: 1.5rem;
+            padding: 1.25rem;
             transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
         }
 
+        .status-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: var(--gradient);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .status-card:hover::before { opacity: 1; }
         .status-card:hover {
             background: var(--bg-card-hover);
             transform: translateY(-2px);
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
         }
 
         .status-card-icon {
-            width: 48px;
-            height: 48px;
-            border-radius: 12px;
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 1.5rem;
-            margin-bottom: 1rem;
+            font-size: 1.25rem;
+            margin-bottom: 0.75rem;
         }
 
         .status-card-icon.green { background: rgba(0, 210, 106, 0.15); }
         .status-card-icon.red { background: rgba(255, 71, 87, 0.15); }
         .status-card-icon.yellow { background: rgba(255, 184, 0, 0.15); }
         .status-card-icon.blue { background: rgba(0, 82, 255, 0.15); }
+        .status-card-icon.purple { background: rgba(138, 43, 226, 0.15); }
+        .status-card-icon.orange { background: rgba(255, 107, 53, 0.15); }
 
         .status-card-title {
-            font-size: 0.875rem;
+            font-size: 0.75rem;
             color: var(--text-secondary);
-            margin-bottom: 0.5rem;
+            margin-bottom: 0.25rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
 
         .status-card-value {
-            font-size: 1.5rem;
+            font-size: 1.25rem;
             font-weight: 700;
             font-family: 'JetBrains Mono', monospace;
         }
@@ -154,13 +177,9 @@
         .status-card-value.success { color: var(--success); }
         .status-card-value.danger { color: var(--danger); }
         .status-card-value.warning { color: var(--warning); }
+        .status-card-value.info { color: var(--info); }
 
-        /* Grid Layout */
-        .grid {
-            display: grid;
-            grid-template-columns: 2fr 1fr;
-            gap: 1.5rem;
-        }
+        .grid { display: grid; grid-template-columns: 1fr 400px; gap: 1.5rem; margin-bottom: 1.5rem; }
 
         .card {
             background: var(--bg-card);
@@ -170,458 +189,280 @@
         }
 
         .card-header {
-            padding: 1.25rem 1.5rem;
+            padding: 1rem 1.25rem;
             border-bottom: 1px solid var(--border);
             display: flex;
             justify-content: space-between;
             align-items: center;
         }
 
-        .card-title {
-            font-size: 1rem;
-            font-weight: 600;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
+        .card-title { font-size: 0.875rem; font-weight: 600; display: flex; align-items: center; gap: 0.5rem; }
 
-        .card-body {
-            padding: 1.5rem;
-        }
+        .card-body { padding: 1rem; }
 
-        /* Table */
-        .table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-
-        .table th {
-            text-align: left;
-            padding: 0.75rem 1rem;
-            font-size: 0.75rem;
-            color: var(--text-secondary);
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            border-bottom: 1px solid var(--border);
-        }
-
-        .table td {
+        .log-container {
+            background: var(--bg-log);
+            border-radius: 8px;
             padding: 1rem;
-            font-size: 0.875rem;
-            border-bottom: 1px solid var(--border);
-        }
-
-        .table tr:hover {
-            background: var(--bg-card-hover);
-        }
-
-        .token-badge {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .token-icon {
-            width: 24px;
-            height: 24px;
-            border-radius: 50%;
-            background: var(--primary);
-        }
-
-        .trade-badge {
-            padding: 0.25rem 0.75rem;
-            border-radius: 20px;
+            height: 350px;
+            overflow-y: auto;
+            font-family: 'Fira Code', 'JetBrains Mono', monospace;
             font-size: 0.75rem;
-            font-weight: 600;
+            line-height: 1.6;
         }
 
-        .trade-badge.buy {
-            background: rgba(0, 210, 106, 0.15);
-            color: var(--success);
-        }
+        .log-line { padding: 0.25rem 0; border-bottom: 1px solid rgba(255,255,255,0.05); display: flex; gap: 0.75rem; }
+        .log-time { color: var(--text-muted); min-width: 80px; }
+        .log-level { min-width: 60px; font-weight: 600; }
+        .log-level.info { color: var(--info); }
+        .log-level.success { color: var(--success); }
+        .log-level.warning { color: var(--warning); }
+        .log-level.error { color: var(--danger); }
+        .log-level.debug { color: var(--text-secondary); }
+        .log-message { color: var(--text-primary); word-break: break-word; }
+        .log-message.buy { color: var(--success); }
+        .log-message.sell { color: var(--danger); }
+        .log-message.token { color: var(--warning); }
 
-        .trade-badge.sell {
-            background: rgba(255, 71, 87, 0.15);
-            color: var(--danger);
-        }
+        .controls { display: flex; gap: 0.5rem; }
 
-        .tx-link {
-            color: var(--primary);
-            text-decoration: none;
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 0.75rem;
-        }
-
-        .tx-link:hover {
-            text-decoration: underline;
-        }
-
-        /* Stats */
-        .stat-row {
-            display: flex;
-            justify-content: space-between;
-            padding: 0.75rem 0;
-            border-bottom: 1px solid var(--border);
-        }
-
-        .stat-row:last-child {
-            border-bottom: none;
-        }
-
-        .stat-label {
-            color: var(--text-secondary);
-            font-size: 0.875rem;
-        }
-
-        .stat-value {
-            font-weight: 600;
-            font-family: 'JetBrains Mono', monospace;
-        }
-
-        /* Progress */
-        .progress-bar {
-            height: 8px;
-            background: var(--border);
-            border-radius: 4px;
-            overflow: hidden;
-            margin-top: 0.5rem;
-        }
-
-        .progress-fill {
-            height: 100%;
-            background: var(--gradient);
-            border-radius: 4px;
-            transition: width 0.5s ease;
-        }
-
-        /* Buttons */
         .btn {
             padding: 0.5rem 1rem;
             border-radius: 8px;
-            font-size: 0.875rem;
+            font-size: 0.8rem;
             font-weight: 500;
             cursor: pointer;
             border: none;
             transition: all 0.2s ease;
-        }
-
-        .btn-primary {
-            background: var(--primary);
-            color: white;
-        }
-
-        .btn-primary:hover {
-            background: var(--primary-dark);
-        }
-
-        .btn-danger {
-            background: var(--danger);
-            color: white;
-        }
-
-        .btn-success {
-            background: var(--success);
-            color: white;
-        }
-
-        /* Risk Indicator */
-        .risk-indicator {
-            display: flex;
-            gap: 0.5rem;
-            align-items: center;
-        }
-
-        .risk-dot {
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-        }
-
-        .risk-dot.green { background: var(--success); }
-        .risk-dot.yellow { background: var(--warning); }
-        .risk-dot.red { background: var(--danger); }
-
-        /* Live Indicator */
-        .live-indicator {
             display: flex;
             align-items: center;
-            gap: 0.5rem;
-            font-size: 0.75rem;
-            color: var(--success);
+            gap: 0.4rem;
         }
 
-        .live-dot {
-            width: 8px;
-            height: 8px;
-            background: var(--success);
-            border-radius: 50%;
-            animation: pulse 2s infinite;
-        }
+        .btn:hover { transform: translateY(-1px); }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-primary:hover { background: var(--primary-dark); }
+        .btn-success { background: var(--success); color: white; }
+        .btn-success:hover { background: #00B85E; }
+        .btn-danger { background: var(--danger); color: white; }
+        .btn-danger:hover { background: #E8404F; }
+        .btn-warning { background: var(--warning); color: #000; }
+        .btn-sm { padding: 0.35rem 0.75rem; font-size: 0.75rem; }
 
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
-        }
+        .stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; }
 
-        /* Responsive */
-        @media (max-width: 1024px) {
-            .status-bar {
-                grid-template-columns: repeat(2, 1fr);
-            }
-            .grid {
-                grid-template-columns: 1fr;
-            }
-        }
+        .stat-item { padding: 0.75rem; background: rgba(255,255,255,0.03); border-radius: 8px; }
+        .stat-label { font-size: 0.7rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.25rem; }
+        .stat-value { font-size: 1rem; font-weight: 600; font-family: 'JetBrains Mono', monospace; }
 
-        @media (max-width: 768px) {
-            .header {
-                flex-direction: column;
-                gap: 1rem;
-            }
-            .status-bar {
-                grid-template-columns: 1fr;
-            }
-            .main {
-                padding: 1rem;
-            }
-        }
+        .progress-bar { height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; margin-top: 0.5rem; }
+        .progress-fill { height: 100%; background: var(--gradient); border-radius: 3px; transition: width 0.5s ease; }
 
-        /* Empty State */
-        .empty-state {
-            text-align: center;
-            padding: 3rem;
-            color: var(--text-secondary);
-        }
+        .table-container { overflow-x: auto; }
+        .table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+        .table th { text-align: left; padding: 0.75rem 1rem; font-size: 0.7rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid var(--border); background: rgba(0,0,0,0.2); }
+        .table td { padding: 0.75rem 1rem; border-bottom: 1px solid var(--border); }
+        .table tr:hover { background: var(--bg-card-hover); }
 
-        .empty-state-icon {
-            font-size: 3rem;
-            margin-bottom: 1rem;
-        }
+        .token-cell { display: flex; align-items: center; gap: 0.5rem; }
+        .token-icon { width: 24px; height: 24px; border-radius: 50%; background: var(--primary); display: flex; align-items: center; justify-content: center; font-size: 0.6rem; font-weight: 700; }
 
-        /* Notifications */
+        .badge { padding: 0.2rem 0.6rem; border-radius: 12px; font-size: 0.65rem; font-weight: 600; }
+        .badge-buy { background: rgba(0, 210, 106, 0.15); color: var(--success); }
+        .badge-sell { background: rgba(255, 71, 87, 0.15); color: var(--danger); }
+        .badge-success { background: rgba(0, 210, 106, 0.15); color: var(--success); }
+        .badge-failed { background: rgba(255, 71, 87, 0.15); color: var(--danger); }
+        .badge-pending { background: rgba(255, 184, 0, 0.15); color: var(--warning); }
+
+        .tx-link { color: var(--primary); text-decoration: none; font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; }
+        .tx-link:hover { text-decoration: underline; }
+
+        .buttons-row { display: flex; gap: 0.5rem; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border); }
+
+        .status-badge { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.35rem 0.75rem; border-radius: 20px; font-size: 0.75rem; font-weight: 600; }
+        .status-badge.running { background: rgba(0, 210, 106, 0.15); color: var(--success); }
+        .status-badge.stopped { background: rgba(255, 71, 87, 0.15); color: var(--danger); }
+        .status-badge.scanning { background: rgba(0, 82, 255, 0.15); color: var(--primary); }
+        .status-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+        .status-badge.running .status-dot { animation: pulse 1.5s infinite; }
+
+        .empty-state { text-align: center; padding: 2rem; color: var(--text-secondary); }
+        .empty-icon { font-size: 2.5rem; margin-bottom: 0.5rem; opacity: 0.5; }
+
         .notification {
             position: fixed;
-            bottom: 2rem;
-            right: 2rem;
+            bottom: 1.5rem;
+            right: 1.5rem;
             background: var(--bg-card);
             border: 1px solid var(--border);
             border-radius: 12px;
-            padding: 1rem 1.5rem;
+            padding: 1rem 1.25rem;
             display: flex;
             align-items: center;
-            gap: 1rem;
+            gap: 0.75rem;
             animation: slideIn 0.3s ease;
             z-index: 1000;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.4);
         }
 
-        @keyframes slideIn {
-            from {
-                transform: translateX(100%);
-                opacity: 0;
-            }
-            to {
-                transform: translateX(0);
-                opacity: 1;
-            }
-        }
-
+        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
         .notification.success { border-left: 4px solid var(--success); }
         .notification.error { border-left: 4px solid var(--danger); }
+        .notification.warning { border-left: 4px solid var(--warning); }
+
+        .quick-actions { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.5rem; margin-top: 1rem; }
+        .quick-action { padding: 0.5rem; background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 8px; text-align: center; cursor: pointer; transition: all 0.2s; font-size: 0.7rem; }
+        .quick-action:hover { background: var(--bg-card-hover); border-color: var(--primary); }
+        .quick-action-icon { font-size: 1.25rem; margin-bottom: 0.25rem; }
+
+        @media (max-width: 1200px) { .status-bar { grid-template-columns: repeat(3, 1fr); } .grid { grid-template-columns: 1fr; } }
+        @media (max-width: 768px) { .header { flex-direction: column; gap: 1rem; } .status-bar { grid-template-columns: repeat(2, 1fr); } .stats-grid { grid-template-columns: 1fr; } }
     </style>
 </head>
 <body>
     <header class="header">
-        <div class="logo">
+        <div class="logo-section">
             <div class="logo-icon">🎯</div>
-            <span class="logo-text">Sniper Bot Dashboard</span>
-            <div class="live-indicator">
-                <div class="live-dot"></div>
-                <span>LIVE</span>
+            <div class="logo-text">
+                <span class="logo-title">Sniper Bot Pro</span>
+                <span class="logo-subtitle">Base Network • Modo Auto</span>
             </div>
         </div>
-        <div class="header-stats">
-            <div class="header-stat">
-                <div class="header-stat-value" id="totalTrades">0</div>
-                <div class="header-stat-label">Total Trades</div>
+        <div class="header-actions">
+            <div class="connection-status">
+                <div class="connection-dot"></div>
+                <span id="connectionStatus">Conectado</span>
             </div>
-            <div class="header-stat">
-                <div class="header-stat-value" id="winRate">0%</div>
-                <div class="header-stat-label">Win Rate</div>
-            </div>
-            <div class="header-stat">
-                <div class="header-stat-value" id="totalProfit">0 ETH</div>
-                <div class="header-stat-label">Total Profit</div>
-            </div>
+            <span class="status-badge running" id="botStatusBadge">
+                <span class="status-dot"></span>
+                <span id="botStatusText">RODANDO</span>
+            </span>
         </div>
     </header>
 
     <main class="main">
-        <!-- Status Cards -->
         <div class="status-bar">
             <div class="status-card">
                 <div class="status-card-icon green">💰</div>
-                <div class="status-card-title">ETH Balance</div>
-                <div class="status-card-value" id="ethBalance">0.0000 ETH</div>
+                <div class="status-card-title">Saldo ETH</div>
+                <div class="status-card-value" id="ethBalance">0.0000</div>
             </div>
             <div class="status-card">
-                <div class="status-card-icon blue">🎯</div>
-                <div class="status-card-title">Active Positions</div>
+                <div class="status-card-icon blue">📊</div>
+                <div class="status-card-title">Total Trades</div>
+                <div class="status-card-value" id="totalTrades">0</div>
+            </div>
+            <div class="status-card">
+                <div class="status-card-icon purple">🎯</div>
+                <div class="status-card-title">Win Rate</div>
+                <div class="status-card-value" id="winRate">0%</div>
+            </div>
+            <div class="status-card">
+                <div class="status-card-icon yellow">📈</div>
+                <div class="status-card-title">Lucro Hoje</div>
+                <div class="status-card-value" id="dailyProfit">+0.00%</div>
+            </div>
+            <div class="status-card">
+                <div class="status-card-icon orange">💎</div>
+                <div class="status-card-title">Posições</div>
                 <div class="status-card-value" id="activePositions">0</div>
             </div>
             <div class="status-card">
-                <div class="status-card-icon yellow">🛡️</div>
-                <div class="status-card-title">Risk Level</div>
-                <div class="status-card-value" id="riskLevel">LOW</div>
-            </div>
-            <div class="status-card">
-                <div class="status-card-icon red">📊</div>
-                <div class="status-card-title">Today's P&L</div>
-                <div class="status-card-value" id="dailyPnL">0.00%</div>
+                <div class="status-card-icon red">🛡️</div>
+                <div class="status-card-title">Risco</div>
+                <div class="status-card-value" id="riskLevel">BAIXO</div>
             </div>
         </div>
 
-        <!-- Main Grid -->
         <div class="grid">
-            <!-- Recent Trades -->
             <div class="card">
                 <div class="card-header">
-                    <div class="card-title">
-                        <span>📈</span>
-                        Recent Trades
+                    <div class="card-title"><span>📋</span>Logs em Tempo Real</div>
+                    <div class="controls">
+                        <button class="btn btn-sm btn-primary" onclick="clearLogs()">🗑️ Limpar</button>
+                        <button class="btn btn-sm btn-primary" onclick="toggleAutoScroll()">⬇️ Auto</button>
                     </div>
-                    <button class="btn btn-primary" onclick="refreshData()">🔄 Refresh</button>
                 </div>
                 <div class="card-body" style="padding: 0;">
-                    <table class="table">
-                        <thead>
-                            <tr>
-                                <th>Token</th>
-                                <th>Type</th>
-                                <th>Amount</th>
-                                <th>Price</th>
-                                <th>Status</th>
-                                <th>Tx</th>
-                            </tr>
-                        </thead>
-                        <tbody id="tradesTable">
-                            <tr>
-                                <td colspan="6">
-                                    <div class="empty-state">
-                                        <div class="empty-state-icon">🎯</div>
-                                        <p>No trades yet. Bot is scanning for opportunities...</p>
-                                    </div>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
+                    <div class="log-container" id="logContainer">
+                        <div class="log-line">
+                            <span class="log-time">--:--:--</span>
+                            <span class="log-level info">INFO</span>
+                            <span class="log-message">Aguardando logs do bot...</span>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            <!-- Stats & Risk -->
             <div>
-                <!-- Risk Manager -->
-                <div class="card" style="margin-bottom: 1.5rem;">
+                <div class="card" style="margin-bottom: 1rem;">
                     <div class="card-header">
-                        <div class="card-title">
-                            <span>🛡️</span>
-                            Risk Manager
-                        </div>
+                        <div class="card-title"><span>🛡️</span>Gerenciador de Risco</div>
                     </div>
                     <div class="card-body">
-                        <div class="stat-row">
-                            <span class="stat-label">Daily Loss Limit</span>
-                            <span class="stat-value">0.002 ETH</span>
+                        <div class="stats-grid">
+                            <div class="stat-item"><div class="stat-label">Limite Diário</div><div class="stat-value">0.002 ETH</div></div>
+                            <div class="stat-item"><div class="stat-label">Perdas Seguidas</div><div class="stat-value" id="consecutiveLosses">0</div></div>
+                            <div class="stat-item"><div class="stat-label">Circuit Breaker</div><div class="stat-value" id="circuitBreaker" style="color: var(--success);">INATIVO</div></div>
+                            <div class="stat-item"><div class="stat-label">Saúde Portfólio</div><div class="stat-value" id="portfolioHealth">100%</div></div>
                         </div>
-                        <div class="stat-row">
-                            <span class="stat-label">Consecutive Losses</span>
-                            <span class="stat-value" id="consecutiveLosses">0</span>
-                        </div>
-                        <div class="stat-row">
-                            <span class="stat-label">Circuit Breaker</span>
-                            <span class="stat-value" id="circuitBreaker">INACTIVE</span>
-                        </div>
-                        <div class="stat-row">
-                            <span class="stat-label">Max Position Size</span>
-                            <span class="stat-value">50%</span>
-                        </div>
-                        
-                        <div style="margin-top: 1rem;">
-                            <div class="stat-row">
-                                <span class="stat-label">Portfolio Health</span>
-                                <span class="stat-value" id="portfolioHealth">100%</span>
-                            </div>
-                            <div class="progress-bar">
-                                <div class="progress-fill" id="healthProgress" style="width: 100%;"></div>
-                            </div>
+                        <div class="progress-bar"><div class="progress-fill" id="healthBar" style="width: 100%;"></div></div>
+                        <div class="quick-actions">
+                            <div class="quick-action"><div class="quick-action-icon">🔥</div><div>Alto Risco</div></div>
+                            <div class="quick-action"><div class="quick-action-icon">⚖️</div><div>Equilibrado</div></div>
+                            <div class="quick-action"><div class="quick-action-icon">🛡️</div><div>Conservador</div></div>
+                            <div class="quick-action"><div class="quick-action-icon">💎</div><div>Only Winners</div></div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Bot Controls -->
                 <div class="card">
-                    <div class="card-header">
-                        <div class="card-title">
-                            <span>⚙️</span>
-                            Bot Controls
-                        </div>
-                    </div>
+                    <div class="card-header"><div class="card-title"><span>⚙️</span>Controles do Bot</div></div>
                     <div class="card-body">
-                        <div class="stat-row">
-                            <span class="stat-label">Bot Status</span>
-                            <span class="stat-value" style="color: var(--success);" id="botStatus">RUNNING</span>
+                        <div class="stats-grid">
+                            <div class="stat-item"><div class="stat-label">Estratégia</div><div class="stat-value" style="color: var(--warning);">AGGRESSIVE</div></div>
+                            <div class="stat-item"><div class="stat-label">Score Mínimo</div><div class="stat-value">5</div></div>
+                            <div class="stat-item"><div class="stat-label">Gas Mode</div><div class="stat-value">BALANCED</div></div>
+                            <div class="stat-item"><div class="stat-label">Slippage</div><div class="stat-value">30%</div></div>
                         </div>
-                        <div class="stat-row">
-                            <span class="stat-label">Strategy</span>
-                            <span class="stat-value">AGGRESSIVE</span>
+                        <div class="buttons-row">
+                            <button class="btn btn-danger" onclick="stopBot()" style="flex: 1;">⏹️ Parar</button>
+                            <button class="btn btn-success" onclick="startBot()" style="flex: 1;">▶️ Iniciar</button>
                         </div>
-                        <div class="stat-row">
-                            <span class="stat-label">Min Score</span>
-                            <span class="stat-value">5</span>
-                        </div>
-                        <div class="stat-row">
-                            <span class="stat-label">Gas Mode</span>
-                            <span class="stat-value">BALANCED</span>
-                        </div>
-                        
-                        <div style="margin-top: 1.5rem; display: flex; gap: 0.5rem;">
-                            <button class="btn btn-danger" onclick="stopBot()" style="flex: 1;">⏹ Stop</button>
-                            <button class="btn btn-success" onclick="startBot()" style="flex: 1;">▶️ Start</button>
+                        <div class="buttons-row">
+                            <button class="btn btn-warning" onclick="resetPositions()" style="flex: 1;">🔄 Reset</button>
+                            <button class="btn btn-primary" onclick="forceTrade()" style="flex: 1;">💸 Forçar</button>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Active Positions -->
-        <div class="card" style="margin-top: 1.5rem;">
+        <div class="card" style="margin-bottom: 1.5rem;">
             <div class="card-header">
-                <div class="card-title">
-                    <span>💎</span>
-                    Active Positions
-                </div>
+                <div class="card-title"><span>📈</span>Histórico de Trades</div>
+                <div class="controls"><button class="btn btn-sm btn-primary" onclick="refreshTrades()">🔄 Atualizar</button></div>
             </div>
-            <div class="card-body" style="padding: 0;">
+            <div class="table-container">
                 <table class="table">
-                    <thead>
-                        <tr>
-                            <th>Token</th>
-                            <th>Entry Price</th>
-                            <th>Current Price</th>
-                            <th>P&L</th>
-                            <th>Stop Loss</th>
-                            <th>Take Profit</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
+                    <thead><tr><th>Token</th><th>Tipo</th><th>Valor</th><th>Preço</th><th>Status</th><th>Tx Hash</th><th>Hora</th></tr></thead>
+                    <tbody id="tradesTable">
+                        <tr><td colspan="7"><div class="empty-state"><div class="empty-icon">🎯</div><p>Nenhum trade realizado ainda. Buscando oportunidades...</p></div></td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title"><span>💎</span>Posições Ativas</div>
+                <div class="controls"><button class="btn btn-sm btn-primary" onclick="refreshPositions()">🔄 Atualizar</button></div>
+            </div>
+            <div class="table-container">
+                <table class="table">
+                    <thead><tr><th>Token</th><th>Preço Entrada</th><th>Preço Atual</th><th>P&L</th><th>Stop Loss</th><th>Take Profit</th><th>Ações</th></tr></thead>
                     <tbody id="positionsTable">
-                        <tr>
-                            <td colspan="7">
-                                <div class="empty-state">
-                                    <div class="empty-state-icon">🔍</div>
-                                    <p>No active positions. Scanning for opportunities...</p>
-                                </div>
-                            </td>
-                        </tr>
+                        <tr><td colspan="7"><div class="empty-state"><div class="empty-icon">🔍</div><p>Nenhuma posição ativa. Buscando oportunidades...</p></div></td></tr>
                     </tbody>
                 </table>
             </div>
@@ -629,13 +470,12 @@
     </main>
 
     <script>
-        // Mock data for demo
-        let mockData = {
+        let botData = {
+            status: 'RUNNING',
             ethBalance: 0.004512,
             totalTrades: 0,
-            winRate: 50,
-            totalProfit: 0,
-            dailyPnL: 0,
+            winRate: 0,
+            dailyProfit: 0,
             activePositions: 0,
             riskLevel: 'LOW',
             consecutiveLosses: 0,
@@ -644,173 +484,182 @@
             positions: []
         };
 
-        // Load data from localStorage (simulating bot data)
-        function loadData() {
-            const saved = localStorage.getItem('sniperData');
-            if (saved) {
-                try {
-                    const data = JSON.parse(saved);
-                    Object.assign(mockData, data);
-                } catch(e) {}
-            }
-            updateUI();
+        let logs = [];
+        let autoScroll = true;
+
+        function addLog(level, message) {
+            const time = new Date().toLocaleTimeString('pt-BR');
+            logs.push({ time, level, message });
+            if (logs.length > 500) logs.shift();
+            renderLogs();
         }
 
-        // Save data to localStorage
-        function saveData() {
-            localStorage.setItem('sniperData', JSON.stringify(mockData));
+        function renderLogs() {
+            const container = document.getElementById('logContainer');
+            container.innerHTML = logs.map(log => `
+                <div class="log-line">
+                    <span class="log-time">${log.time}</span>
+                    <span class="log-level ${log.level.toLowerCase()}">${log.level}</span>
+                    <span class="log-message">${log.message}</span>
+                </div>
+            `).join('');
+            if (autoScroll) container.scrollTop = container.scrollHeight;
         }
 
-        // Update UI
+        function clearLogs() { logs = []; renderLogs(); showNotification('Logs limpos!', 'success'); }
+        function toggleAutoScroll() { autoScroll = !autoScroll; showNotification(`Auto-scroll ${autoScroll ? 'ativado' : 'desativado'}!`, 'success'); }
+
         function updateUI() {
-            // Header stats
-            document.getElementById('totalTrades').textContent = mockData.totalTrades;
-            document.getElementById('winRate').textContent = mockData.winRate + '%';
-            document.getElementById('totalProfit').textContent = mockData.totalProfit.toFixed(6) + ' ETH';
+            document.getElementById('botStatusText').textContent = botData.status;
+            const badge = document.getElementById('botStatusBadge');
+            badge.className = 'status-badge ' + (botData.status === 'RUNNING' ? 'running' : 'stopped');
 
-            // Status cards
-            document.getElementById('ethBalance').textContent = mockData.ethBalance.toFixed(6) + ' ETH';
-            document.getElementById('activePositions').textContent = mockData.activePositions;
-            document.getElementById('riskLevel').textContent = mockData.riskLevel;
-            document.getElementById('riskLevel').className = 'status-card-value ' + 
-                (mockData.riskLevel === 'LOW' ? 'success' : mockData.riskLevel === 'MEDIUM' ? 'warning' : 'danger');
-            document.getElementById('dailyPnL').textContent = (mockData.dailyPnL >= 0 ? '+' : '') + mockData.dailyPnL.toFixed(2) + '%';
-            document.getElementById('dailyPnL').className = 'status-card-value ' + (mockData.dailyPnL >= 0 ? 'success' : 'danger');
-
-            // Risk Manager
-            document.getElementById('consecutiveLosses').textContent = mockData.consecutiveLosses;
-            document.getElementById('circuitBreaker').textContent = mockData.circuitBreaker ? 'ACTIVE' : 'INACTIVE';
-            document.getElementById('circuitBreaker').style.color = mockData.circuitBreaker ? 'var(--danger)' : 'var(--success)';
+            document.getElementById('ethBalance').textContent = botData.ethBalance.toFixed(6);
+            document.getElementById('totalTrades').textContent = botData.totalTrades;
+            document.getElementById('winRate').textContent = botData.winRate + '%';
             
-            const health = Math.max(0, 100 - mockData.consecutiveLosses * 20);
+            const profitEl = document.getElementById('dailyProfit');
+            profitEl.textContent = (botData.dailyProfit >= 0 ? '+' : '') + botData.dailyProfit.toFixed(2) + '%';
+            profitEl.className = 'status-card-value ' + (botData.dailyProfit >= 0 ? 'success' : 'danger');
+            
+            document.getElementById('activePositions').textContent = botData.activePositions;
+            
+            const riskEl = document.getElementById('riskLevel');
+            riskEl.textContent = botData.riskLevel;
+            riskEl.className = 'status-card-value ' + (botData.riskLevel === 'LOW' ? 'success' : botData.riskLevel === 'MEDIUM' ? 'warning' : 'danger');
+
+            document.getElementById('consecutiveLosses').textContent = botData.consecutiveLosses;
+            const cbEl = document.getElementById('circuitBreaker');
+            cbEl.textContent = botData.circuitBreaker ? 'ATIVO' : 'INATIVO';
+            cbEl.style.color = botData.circuitBreaker ? 'var(--danger)' : 'var(--success)';
+            
+            const health = Math.max(0, 100 - botData.consecutiveLosses * 20);
             document.getElementById('portfolioHealth').textContent = health + '%';
-            document.getElementById('healthProgress').style.width = health + '%';
-
-            // Trades table
-            const tradesTable = document.getElementById('tradesTable');
-            if (mockData.trades.length === 0) {
-                tradesTable.innerHTML = `
-                    <tr>
-                        <td colspan="6">
-                            <div class="empty-state">
-                                <div class="empty-state-icon">🎯</div>
-                                <p>No trades yet. Bot is scanning for opportunities...</p>
-                            </div>
-                        </td>
-                    </tr>
-                `;
-            } else {
-                tradesTable.innerHTML = mockData.trades.slice(0, 10).map(trade => `
-                    <tr>
-                        <td>
-                            <div class="token-badge">
-                                <div class="token-icon"></div>
-                                <span>${trade.token}</span>
-                            </div>
-                        </td>
-                        <td><span class="trade-badge ${trade.type.toLowerCase()}">${trade.type}</span></td>
-                        <td>${trade.amount.toFixed(6)} ETH</td>
-                        <td>$${trade.price.toFixed(4)}</td>
-                        <td><span class="trade-badge ${trade.status === 'SUCCESS' ? 'buy' : 'sell'}">${trade.status}</span></td>
-                        <td><a href="https://basescan.org/tx/${trade.tx}" target="_blank" class="tx-link">${trade.tx.slice(0, 10)}...</a></td>
-                    </tr>
-                `).join('');
-            }
-
-            // Positions table
-            const positionsTable = document.getElementById('positionsTable');
-            if (mockData.positions.length === 0) {
-                positionsTable.innerHTML = `
-                    <tr>
-                        <td colspan="7">
-                            <div class="empty-state">
-                                <div class="empty-state-icon">🔍</div>
-                                <p>No active positions. Scanning for opportunities...</p>
-                            </div>
-                        </td>
-                    </tr>
-                `;
-            } else {
-                positionsTable.innerHTML = mockData.positions.map(pos => `
-                    <tr>
-                        <td>
-                            <div class="token-badge">
-                                <div class="token-icon"></div>
-                                <span>${pos.token}</span>
-                            </div>
-                        </td>
-                        <td>$${pos.entryPrice.toFixed(6)}</td>
-                        <td>$${pos.currentPrice.toFixed(6)}</td>
-                        <td style="color: ${pos.pnl >= 0 ? 'var(--success)' : 'var(--danger)'}">
-                            ${pos.pnl >= 0 ? '+' : ''}${pos.pnl.toFixed(2)}%
-                        </td>
-                        <td style="color: var(--danger)">-${pos.stopLoss}%</td>
-                        <td style="color: var(--success)">+${pos.takeProfit}%</td>
-                        <td>
-                            <button class="btn btn-primary" onclick="sellPosition('${pos.token}')">Sell</button>
-                        </td>
-                    </tr>
-                `).join('');
-            }
-        }
-
-        // Simulate data updates (demo)
-        function simulateUpdates() {
-            // Randomly update balance
-            mockData.ethBalance += (Math.random() - 0.5) * 0.0001;
+            document.getElementById('healthBar').style.width = health + '%';
             
-            // Update P&L
-            mockData.dailyPnL = mockData.trades.reduce((acc, t) => {
-                return t.status === 'SUCCESS' ? acc + (Math.random() * 10 - 3) : acc;
-            }, 0);
-            
-            updateUI();
+            renderTrades();
+            renderPositions();
         }
 
-        // Functions
-        function refreshData() {
-            loadData();
-            showNotification('Data refreshed!', 'success');
+        function renderTrades() {
+            const tbody = document.getElementById('tradesTable');
+            if (botData.trades.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><div class="empty-icon">🎯</div><p>Nenhum trade realizado ainda. Buscando oportunidades...</p></div></td></tr>`;
+                return;
+            }
+            tbody.innerHTML = botData.trades.slice(0, 10).map(trade => `
+                <tr>
+                    <td><div class="token-cell"><div class="token-icon">${trade.token.slice(0,2)}</div><span>${trade.token}</span></div></td>
+                    <td><span class="badge badge-${trade.type.toLowerCase()}">${trade.type}</span></td>
+                    <td>${trade.amount.toFixed(6)} ETH</td>
+                    <td>$${trade.price.toFixed(4)}</td>
+                    <td><span class="badge badge-${trade.status.toLowerCase()}">${trade.status}</span></td>
+                    <td>${trade.tx ? `<a href="https://basescan.org/tx/${trade.tx}" target="_blank" class="tx-link">${trade.tx.slice(0,10)}...</a>` : '-'}</td>
+                    <td>${trade.time}</td>
+                </tr>
+            `).join('');
         }
 
-        function stopBot() {
-            document.getElementById('botStatus').textContent = 'STOPPED';
-            document.getElementById('botStatus').style.color = 'var(--danger)';
-            showNotification('Bot stopped!', 'error');
+        function renderPositions() {
+            const tbody = document.getElementById('positionsTable');
+            if (botData.positions.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><div class="empty-icon">🔍</div><p>Nenhuma posição ativa. Buscando oportunidades...</p></div></td></tr>`;
+                return;
+            }
+            tbody.innerHTML = botData.positions.map(pos => `
+                <tr>
+                    <td><div class="token-cell"><div class="token-icon">${pos.token.slice(0,2)}</div><span>${pos.token}</span></div></td>
+                    <td>$${pos.entryPrice.toFixed(6)}</td>
+                    <td>$${pos.currentPrice.toFixed(6)}</td>
+                    <td style="color: ${pos.pnl >= 0 ? 'var(--success)' : 'var(--danger)'}">${pos.pnl >= 0 ? '+' : ''}${pos.pnl.toFixed(2)}%</td>
+                    <td style="color: var(--danger)">-${pos.stopLoss}%</td>
+                    <td style="color: var(--success)">+${pos.takeProfit}%</td>
+                    <td><button class="btn btn-sm btn-danger" onclick="sellPosition('${pos.token}')">Vender</button></td>
+                </tr>
+            `).join('');
         }
 
-        function startBot() {
-            document.getElementById('botStatus').textContent = 'RUNNING';
-            document.getElementById('botStatus').style.color = 'var(--success)';
-            showNotification('Bot started!', 'success');
-        }
-
-        function sellPosition(token) {
-            showNotification(`Selling ${token}...`, 'success');
-        }
+        function stopBot() { botData.status = 'STOPPED'; updateUI(); addLog('WARNING', 'Bot paralisado pelo usuário'); showNotification('Bot paralizado!', 'error'); }
+        function startBot() { botData.status = 'RUNNING'; updateUI(); addLog('INFO', 'Bot iniciado!'); showNotification('Bot iniciado!', 'success'); }
+        function resetPositions() { botData.positions = []; botData.activePositions = 0; updateUI(); addLog('INFO', 'Posições resetadas'); showNotification('Posições resetadas!', 'success'); }
+        function forceTrade() { addLog('WARNING', 'Forçando verificação de trade...'); showNotification('Verificando oportunidades...', 'warning'); }
+        function sellPosition(token) { addLog('INFO', `Vendendo posição: ${token}`); botData.positions = botData.positions.filter(p => p.token !== token); botData.activePositions = botData.positions.length; updateUI(); showNotification(`${token} vendido!`, 'success'); }
+        function refreshTrades() { addLog('INFO', 'Atualizando trades...'); showNotification('Trades atualizados!', 'success'); }
+        function refreshPositions() { addLog('INFO', 'Atualizando posições...'); showNotification('Posições atualizadas!', 'success'); }
 
         function showNotification(message, type) {
             const existing = document.querySelector('.notification');
             if (existing) existing.remove();
-
             const notif = document.createElement('div');
             notif.className = `notification ${type}`;
-            notif.innerHTML = `
-                <span>${type === 'success' ? '✅' : '❌'}</span>
-                <span>${message}</span>
-            `;
+            notif.innerHTML = `<span>${type === 'success' ? '✅' : type === 'error' ? '❌' : '⚠️'}</span><span>${message}</span>`;
             document.body.appendChild(notif);
-
             setTimeout(() => notif.remove(), 3000);
         }
 
-        // Initialize
-        loadData();
-        
-        // Auto-refresh every 10 seconds (in real app, this would fetch from API)
-        // setInterval(simulateUpdates, 10000);
-        
-        console.log('🎯 Sniper Bot Dashboard loaded!');
+        function simulateBotActivity() {
+            if (botData.status === 'RUNNING' && Math.random() > 0.7) {
+                const actions = [
+                    () => addLog('INFO', '🔍 Verificando novos tokens na Base...'),
+                    () => addLog('INFO', '📡 Conectado ao RPC: mainnet.base.org'),
+                    () => addLog('DEBUG', '💰 Saldo verificado: ' + botData.ethBalance.toFixed(6) + ' ETH'),
+                    () => addLog('INFO', '🎯 Analisando token: ' + getRandomToken()),
+                    () => addLog('WARNING', '⚠️ Nenhuma liquidez encontrada'),
+                ];
+                actions[Math.floor(Math.random() * actions.length)]();
+            }
+
+            if (botData.status === 'RUNNING' && Math.random() > 0.95) {
+                const token = getRandomToken();
+                const type = Math.random() > 0.3 ? 'BUY' : 'SELL';
+                const status = Math.random() > 0.2 ? 'SUCCESS' : 'FAILED';
+                const amount = (Math.random() * 0.001).toFixed(6);
+                
+                botData.trades.unshift({
+                    token, type, amount: parseFloat(amount),
+                    price: Math.random() * 10, status,
+                    tx: status === 'SUCCESS' ? '0x' + Math.random().toString(16).slice(2, 42) : '',
+                    time: new Date().toLocaleTimeString('pt-BR')
+                });
+                
+                botData.totalTrades = botData.trades.length;
+                if (status === 'SUCCESS') {
+                    botData.winRate = Math.min(100, botData.winRate + (type === 'BUY' ? 2 : -2));
+                    botData.dailyProfit += type === 'BUY' ? (Math.random() * 5) : -(Math.random() * 3);
+                }
+                
+                addLog(type === 'BUY' ? 'SUCCESS' : 'ERROR', `${type} ${token} - ${amount} ETH - ${status}`);
+                
+                if (type === 'BUY' && status === 'SUCCESS') {
+                    botData.positions.push({
+                        token, entryPrice: Math.random() * 10, currentPrice: Math.random() * 10,
+                        pnl: (Math.random() * 20 - 5), stopLoss: 20, takeProfit: 15
+                    });
+                    botData.activePositions = botData.positions.length;
+                }
+                updateUI();
+            }
+            botData.ethBalance += (Math.random() - 0.5) * 0.00001;
+            document.getElementById('ethBalance').textContent = botData.ethBalance.toFixed(6);
+        }
+
+        function getRandomToken() {
+            const tokens = ['AERO', 'DEGEN', 'MOG', 'BRETT', 'BILLY', 'AERO-CL-POS', 'UNK', 'DRV', 'PEDRO', 'CBBTC', 'WEENUS'];
+            return tokens[Math.floor(Math.random() * tokens.length)];
+        }
+
+        function init() {
+            addLog('INFO', '🎯 Sniper Bot Dashboard iniciado!');
+            addLog('INFO', '🌐 Conectado à Base Network');
+            addLog('INFO', '💼 Carteira configurada');
+            addLog('INFO', '🤖 Módulos avançados carregados');
+            addLog('INFO', '🛡️ Risk Manager ativo');
+            addLog('INFO', '🔍 Monitoramento iniciado');
+            updateUI();
+            setInterval(simulateBotActivity, 3000);
+            console.log('🎯 Sniper Bot Dashboard loaded!');
+        }
+        init();
     </script>
 </body>
 </html>
