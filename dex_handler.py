@@ -616,17 +616,17 @@ class DEXHandler:
                 # Para tokens muito novos, usar valor mínimo muito baixo
                 amount_out_min = 1  # Aceitar qualquer quantidade de tokens
             
-            # Usar gas price mais realista - 0.01 gwei é muito baixo para Base
+            # Usar gas price mais realista para Base Network
             try:
                 # Tentar obter gas price atual da rede
                 gas_price_suggested = web3_instance.eth.gas_price
-                gas_price_wei = int(gas_price_suggested * 1.2)  # 20% acima do mercado
-                # Mas não menos que 0.1 gwei (mínimo razoável para Base) e não mais que 1 gwei
-                gas_price = max(web3_instance.to_wei(0.1, 'gwei'), min(gas_price_wei, web3_instance.to_wei(1, 'gwei')))
+                gas_price_wei = int(gas_price_suggested * 1.5)  # 50% acima do mercado para garantir
+                # Mínimo 0.5 gwei (era 0.1) e máximo 5 gwei
+                gas_price = max(web3_instance.to_wei(0.5, 'gwei'), min(gas_price_wei, web3_instance.to_wei(5, 'gwei')))
                 print(f"⛽ Gas price: {web3_instance.from_wei(gas_price, 'gwei'):.4f} gwei (ajustado)")
             except:
-                gas_price = web3_instance.to_wei(0.1, 'gwei')  # Fallback para 0.1 gwei (mínimo para Base)
-                print(f"⛽ Gas price: 0.1 gwei (fallback)")
+                gas_price = web3_instance.to_wei(0.5, 'gwei')  # Fallback mais alto
+                print(f"⛽ Gas price: 0.5 gwei (fallback)")
             
             # Preparar transação - Usar método correto baseado na DEX
             if is_buy:
