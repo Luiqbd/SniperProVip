@@ -8,5 +8,6 @@ aiohttp==3.9.1
 asyncio-throttle==1.0.2
 eth-utils==2.3.0
 hexbytes==0.3.1
-python-telegram-bot==20.7flask
+python-telegram-bot==20.7
+flask
 flask-cors
