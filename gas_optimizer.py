@@ -136,13 +136,19 @@ class GasOptimizer:
         Calcula parâmetros EIP-1559 (type 2 transaction)
         """
         try:
-            block = await self.web3.eth.get_block('latest')
-            
-            if 'baseFeePerGas' not in block:
+            # web3.py v7 requires async call
+            block = self.web3.eth.get_block('latest')
+            if hasattr(block, 'base_fee_per_gas'):
+                base_fee = block.base_fee_per_gas
+            elif isinstance(block, dict) and 'baseFeePerGas' in block:
+                base_fee = block['baseFeePerGas']
+            else:
                 # Rede não suporta EIP-1559
                 return await self._get_legacy_params()
             
-            base_fee = block['baseFeePerGas']
+            # Convert to int if needed
+            if hasattr(base_fee, 'to_int'):
+                base_fee = base_fee.to_int()
             
             # Priority fee (tip)
             max_priority = self.web3.to_wei(0.1, 'gwei')  # 0.1 gwei tip
