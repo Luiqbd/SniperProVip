@@ -1,4 +1,5 @@
 import asyncio
+import sys
 import time
 import random
 from typing import Dict, Optional
@@ -7,6 +8,9 @@ from eth_account import Account
 from colorama import Fore, Style, init
 import logging
 from datetime import datetime
+
+# Aumentar limite de recursão para evitar problemas
+sys.setrecursionlimit(5000)
 
 from config import *
 from dex_handler import DEXHandler
