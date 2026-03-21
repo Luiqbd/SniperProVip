@@ -60,6 +60,32 @@ def setup_logger(name: str = "sniper") -> logging.Logger:
 # Logger principal
 logger = setup_logger("sniper")
 
+# ============================================
+# Dashboard Integration - Integração com Dashboard
+# ============================================
+try:
+    from dashboard.api import data_store, log_info as dashboard_log, log_error as dashboard_error, log_warning as dashboard_warning
+    DASHBOARD_ENABLED = True
+except ImportError:
+    DASHBOARD_ENABLED = False
+    dashboard_log = None
+    dashboard_error = None
+    dashboard_warning = None
+
+def send_to_dashboard(level: str, message: str):
+    """Envia log para o dashboard"""
+    if not DASHBOARD_ENABLED:
+        return
+    try:
+        if level == 'ERROR' and dashboard_error:
+            dashboard_error(message)
+        elif level == 'WARNING' and dashboard_warning:
+            dashboard_warning(message)
+        elif dashboard_log:
+            dashboard_log(message)
+    except:
+        pass  # Silencioso se falhar
+
 
 def log_trade(action: str, token_symbol: str, amount: float, tx_hash: str = None, status: str = "PENDING"):
     """Registra operação de trade"""
@@ -68,6 +94,7 @@ def log_trade(action: str, token_symbol: str, amount: float, tx_hash: str = None
         log_entry += f" | TX: {tx_hash}"
     
     logger.info(log_entry)
+    send_to_dashboard('INFO', log_entry)
     
     # Também salva no arquivo de trades
     with open(TRADE_FILE, 'a', encoding='utf-8') as f:
@@ -83,99 +110,130 @@ def log_error(error_type: str, message: str, exception: Exception = None, tx_has
         log_entry += f" | Exception: {str(exception)}"
     
     logger.error(log_entry)
+    send_to_dashboard('ERROR', log_entry)
     
     # Log adicional para tracking
-    logger.debug(f"Stack trace: {exception.__class__.__name__}")
+    if exception:
+        logger.debug(f"Stack trace: {exception.__class__.__name__}")
 
 
 def log_buy_attempt(token_symbol: str, amount: float, reason: str = ""):
     """Registra tentativa de compra"""
-    logger.info(f"BUY ATTEMPT | {token_symbol} | {amount:.6f} ETH | {reason}")
+    msg = f"BUY ATTEMPT | {token_symbol} | {amount:.6f} ETH | {reason}"
+    logger.info(msg)
+    send_to_dashboard('INFO', msg)
 
 
 def log_buy_success(token_symbol: str, amount: float, tx_hash: str, dex: str):
     """Registra compra bem-sucedida"""
     log_trade("BUY", token_symbol, amount, tx_hash, "SUCCESS")
-    logger.info(f"✅ BUY SUCCESS | {token_symbol} | {amount:.6f} ETH | DEX: {dex}")
+    msg = f"✅ BUY SUCCESS | {token_symbol} | {amount:.6f} ETH | DEX: {dex}"
+    logger.info(msg)
+    send_to_dashboard('SUCCESS', msg)
 
 
 def log_buy_failure(token_symbol: str, amount: float, reason: str):
     """Registra falha na compra"""
     log_trade("BUY", token_symbol, amount, None, f"FAILED: {reason}")
-    logger.error(f"❌ BUY FAILED | {token_symbol} | {amount:.6f} ETH | Reason: {reason}")
+    msg = f"❌ BUY FAILED | {token_symbol} | {amount:.6f} ETH | Reason: {reason}"
+    logger.error(msg)
+    send_to_dashboard('ERROR', msg)
 
 
 def log_sell_attempt(token_symbol: str, amount: float):
     """Registra tentativa de venda"""
-    logger.info(f"SELL ATTEMPT | {token_symbol} | {amount:.6f} tokens")
+    msg = f"SELL ATTEMPT | {token_symbol} | {amount:.6f} tokens"
+    logger.info(msg)
+    send_to_dashboard('INFO', msg)
 
 
 def log_sell_success(token_symbol: str, amount: float, tx_hash: str, profit: float = None):
     """Registra venda bem-sucedida"""
     log_trade("SELL", token_symbol, amount, tx_hash, "SUCCESS")
     profit_str = f" | Profit: {profit:.6f} ETH" if profit else ""
-    logger.info(f"✅ SELL SUCCESS | {token_symbol} | {amount:.6f} tokens{profit_str}")
+    msg = f"✅ SELL SUCCESS | {token_symbol} | {amount:.6f} tokens{profit_str}"
+    logger.info(msg)
+    send_to_dashboard('SUCCESS', msg)
 
 
 def log_sell_failure(token_symbol: str, amount: float, reason: str):
     """Registra falha na venda"""
     log_trade("SELL", token_symbol, amount, None, f"FAILED: {reason}")
-    logger.error(f"❌ SELL FAILED | {token_symbol} | {amount:.6f} tokens | Reason: {reason}")
+    msg = f"❌ SELL FAILED | {token_symbol} | {amount:.6f} tokens | Reason: {reason}"
+    logger.error(msg)
+    send_to_dashboard('ERROR', msg)
 
 
 def log_tx_reverted(tx_hash: str, reason: str = ""):
     """Registra transação revertida"""
-    logger.error(f"🔴 TX REVERTED | {tx_hash} | {reason}")
+    msg = f"🔴 TX REVERTED | {tx_hash} | {reason}"
+    logger.error(msg)
+    send_to_dashboard('ERROR', msg)
     log_error("TX_REVERTED", reason, tx_hash=tx_hash)
 
 
 def log_insufficient_balance(token_symbol: str, required: float, available: float, balance_type: str = "ETH"):
     """Registra saldo insuficiente"""
-    logger.warning(f"⚠️ INSUFFICIENT BALANCE | {balance_type} | Required: {required:.6f} | Available: {available:.6f}")
+    msg = f"⚠️ INSUFFICIENT BALANCE | {balance_type} | Required: {required:.6f} | Available: {available:.6f}"
+    logger.warning(msg)
+    send_to_dashboard('WARNING', msg)
     log_error("INSUFFICIENT_BALANCE", f"Need {required:.6f} {balance_type}, have {available:.6f}")
 
 
 def log_gas_too_low(tx_hash: str = None):
     """Registra problema de gas muito baixo"""
-    msg = "GAS_TOO_LOW"
+    msg = "⚠️ GAS_TOO_LOW"
     if tx_hash:
         msg += f" | TX: {tx_hash}"
-    logger.warning(f"⚠️ {msg}")
+    logger.warning(msg)
+    send_to_dashboard('WARNING', msg)
     log_error("GAS_TOO_LOW", "Gas price too low for confirmation")
 
 
 def log_rate_limit(retry_after: int = 0):
     """Registra rate limit atingido"""
     retry_msg = f" | Retry after: {retry_after}s" if retry_after else ""
-    logger.warning(f"🚫 RATE LIMIT{retry_msg}")
+    msg = f"🚫 RATE LIMIT{retry_msg}"
+    logger.warning(msg)
+    send_to_dashboard('WARNING', msg)
     log_error("RATE_LIMIT", f"RPC rate limit hit, retry after {retry_after}s")
 
 
 def log_rpc_error(rpc_url: str, error: str):
     """Registra erro de conexão RPC"""
-    logger.error(f"🌐 RPC ERROR | {rpc_url[:30]}... | {error}")
+    msg = f"🌐 RPC ERROR | {rpc_url[:30]}... | {error}"
+    logger.error(msg)
+    send_to_dashboard('ERROR', msg)
     log_error("RPC_ERROR", error)
 
 
 def log_token_detected(token_symbol: str, token_address: str, liquidity: float = None):
     """Registra token detectado"""
     liq_str = f" | Liquidity: {liquidity:.4f} ETH" if liquidity else ""
-    logger.info(f"🔍 TOKEN DETECTED | {token_symbol} | {token_address[:10]}...{liq_str}")
+    msg = f"🔍 TOKEN DETECTED | {token_symbol} | {token_address[:10]}...{liq_str}"
+    logger.info(msg)
+    send_to_dashboard('INFO', msg)
 
 
 def log_analysis(token_symbol: str, score: int, prediction: str, reason: str):
     """Registra análise de token"""
-    logger.info(f"🧠 AI ANALYSIS | {token_symbol} | Score: {score}/100 | Prediction: {prediction} | {reason}")
+    msg = f"🧠 AI ANALYSIS | {token_symbol} | Score: {score}/100 | Prediction: {prediction} | {reason}"
+    logger.info(msg)
+    send_to_dashboard('INFO', msg)
 
 
 def log_buy_decision(token_symbol: str, decision: str, reason: str):
     """Registra decisão de compra"""
-    logger.info(f"🎯 BUY DECISION | {token_symbol} | {decision} | {reason}")
+    msg = f"🎯 BUY DECISION | {token_symbol} | {decision} | {reason}"
+    logger.info(msg)
+    send_to_dashboard('INFO', msg)
 
 
 def log_sell_decision(token_symbol: str, decision: str, reason: str):
     """Registra decisão de venda"""
-    logger.info(f"💰 SELL DECISION | {token_symbol} | {decision} | {reason}")
+    msg = f"💰 SELL DECISION | {token_symbol} | {decision} | {reason}"
+    logger.info(msg)
+    send_to_dashboard('INFO', msg)
 
 
 def log_bot_start():
@@ -183,17 +241,22 @@ def log_bot_start():
     logger.info("=" * 50)
     logger.info("🚀 SNIPER BOT STARTED")
     logger.info("=" * 50)
+    send_to_dashboard('INFO', "🚀 SNIPER BOT INICIADO!")
 
 
 def log_bot_stop():
     """Registra parada do bot"""
-    logger.info("🛑 SNIPER BOT STOPPED")
+    msg = "🛑 SNIPER BOT STOPPED"
+    logger.info(msg)
     logger.info("=" * 50)
+    send_to_dashboard('WARNING', msg)
 
 
 def log_config_loaded():
     """Registra configurações carregadas"""
-    logger.info("📋 Configuration loaded")
+    msg = "📋 Configuration loaded"
+    logger.info(msg)
+    send_to_dashboard('INFO', msg)
 
 
 def log_balance_check(balance_eth: float, balance_token: str = None):
@@ -202,6 +265,7 @@ def log_balance_check(balance_eth: float, balance_token: str = None):
     if balance_token:
         msg += f" | Token: {balance_token}"
     logger.debug(msg)
+    send_to_dashboard('DEBUG', msg)
 
 
 def get_recent_errors(lines: int = 50) -> str:

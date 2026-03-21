@@ -5,6 +5,7 @@ Servidor API para conectar o dashboard ao bot
 
 from flask import Flask, jsonify, request
 import threading
+import os
 from datetime import datetime
 from collections import deque
 
@@ -37,7 +38,7 @@ class DataStore:
         """Adicionar entrada de log"""
         log_entry = {
             'time': datetime.now().strftime('%H:%M:%S'),
-            'level': level,
+            'level': level.upper(),
             'message': message
         }
         with self.lock:
@@ -61,9 +62,44 @@ class DataStore:
     def get_logs(self):
         with self.lock:
             return list(self.data['logs'])
+    
+    def load_logs_from_file(self, log_file_path: str, lines: int = 100):
+        """Carrega logs diretamente do arquivo de log do bot"""
+        try:
+            if os.path.exists(log_file_path):
+                with open(log_file_path, 'r', encoding='utf-8') as f:
+                    all_lines = f.readlines()
+                    recent = all_lines[-lines:] if len(all_lines) > lines else all_lines
+                    
+                    with self.lock:
+                        for line in recent:
+                            line = line.strip()
+                            if not line:
+                                continue
+                            # Parse log line
+                            parts = line.split(' | ')
+                            if len(parts) >= 3:
+                                time = parts[0][-8:] if len(parts[0]) > 8 else parts[0]
+                                level = parts[1] if len(parts) > 1 else 'INFO'
+                                message = ' | '.join(parts[2:]) if len(parts) > 2 else line
+                                
+                                log_entry = {
+                                    'time': time,
+                                    'level': level.upper(),
+                                    'message': message
+                                }
+                                # Avoid duplicates
+                                if log_entry not in self.data['logs']:
+                                    self.data['logs'].append(log_entry)
+        except Exception as e:
+            print(f"Erro ao carregar logs: {e}")
 
 # Global data store
 data_store = DataStore()
+
+# Carregar logs do arquivo ao iniciar
+LOG_FILE = f"logs/sniper_{datetime.now().strftime('%Y%m%d')}.log"
+data_store.load_logs_from_file(LOG_FILE, 50)
 
 # ============================================
 # API Routes - Rotas da API
