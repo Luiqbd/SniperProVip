@@ -4,6 +4,7 @@ Servidor API para conectar o dashboard ao bot
 """
 
 from flask import Flask, jsonify, request
+from flask_cors import CORS
 import threading
 import os
 from datetime import datetime
@@ -11,6 +12,9 @@ from collections import deque
 
 app = Flask(__name__)
 app.config['JSON_SORT_KEYS'] = False
+
+# Enable CORS for all routes - Permite acesso do dashboard
+CORS(app, resources={r"/api/*": {"origins": "*"}})
 
 # ============================================
 # Data Store - Armazenamento de Dados

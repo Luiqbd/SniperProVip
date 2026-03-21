@@ -26,16 +26,34 @@ Acesse: `http://localhost:5000`
 
 ## 🔌 Conectando ao Bot no Render
 
+### ⚠️ IMPORTANTE: O bot precisa da API rodando!
+
+A API precisa estar rodando junto com o bot. O Flask precisa estar instalado no requirements.txt!
+
 ### Passo 1: Configure a API URL
 
-Abra o arquivo `dashboard/index.html` e altere a linha:
+Abra o arquivo `dashboard/index.html` e altere a linha na linha 476:
 
 ```javascript
-// NO TOPO DO ARQUIVO:
+// De:
+const API_URL = ''; // Deixe vazio
+
+// Para:
 const API_URL = 'https://seu-sniper-bot.onrender.com';
 ```
 
-Substitua `https://seu-sniper-bot.onrender.com` pela URL real do seu bot no Render!
+**Exemplo:** Se seu bot está em `https://sniper-pro.onrender.com`, use:
+```javascript
+const API_URL = 'https://sniper-pro.onrender.com';
+```
+
+### Passo 2: Instale Flask
+
+Garanta que `flask` e `flask-cors` estão no requirements.txt:
+```
+flask
+flask-cors
+```
 
 ### Passo 2: O Bot precisa rodar a API
 
