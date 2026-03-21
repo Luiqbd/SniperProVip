@@ -17,6 +17,18 @@ from ai_optimizer import AIOptimizer
 from ai_predictor import AIPredictor
 from sniper_logger import *
 
+# Novos módulos avançados
+try:
+    from risk_manager import RiskManager
+    from honeypot_detector import HoneypotDetector
+    from flashbots_handler import FlashbotsHandler
+    from whale_tracker import WhaleTracker
+    from gas_optimizer import GasOptimizer
+    ADVANCED_MODULES = True
+except ImportError as e:
+    print(f"⚠️ Módulos avançados não disponíveis: {e}")
+    ADVANCED_MODULES = False
+
 # Inicializar colorama
 init(autoreset=True)
 
@@ -49,6 +61,23 @@ class SniperBot:
         
         # Estratégia agressiva para crescimento rápido
         self.aggressive_strategy = None
+        
+        # ==========================================
+        # MÓDULOS AVANÇADOS
+        # ==========================================
+        self.risk_manager = None
+        self.honeypot_detector = None
+        self.flashbots_handler = None
+        self.whale_tracker = None
+        self.gas_optimizer = None
+        
+        if ADVANCED_MODULES:
+            print(f"🚀 Módulos Avançados Carregados:")
+            print(f"   🛡️ Risk Manager")
+            print(f"   🔍 Honeypot Detector")
+            print(f"   ⚡ Flashbots Handler")
+            print(f"   🐋 Whale Tracker")
+            print(f"   ⛽ Gas Optimizer")
         
         # Configurar logging primeiro
         if ENABLE_LOGGING:
@@ -197,6 +226,30 @@ class SniperBot:
             # Inicializar IA Preditiva (para lucros grandes)
             self.ai_predictor = AIPredictor()
             print(f"{Fore.CYAN}🎯 IA Preditiva ativada - Foco em lucros grandes!{Style.RESET_ALL}")
+            
+            # ==========================================
+            # INICIALIZAR MÓDULOS AVANÇADOS
+            # ==========================================
+            if ADVANCED_MODULES:
+                # Risk Manager - Gerenciamento de risco
+                self.risk_manager = RiskManager(INITIAL_ETH_BALANCE)
+                print(f"{Fore.GREEN}🛡️ Risk Manager inicializado{Style.RESET_ALL}")
+                
+                # Honeypot Detector - Detecção de scams
+                self.honeypot_detector = HoneypotDetector(self.web3)
+                print(f"{Fore.GREEN}🔍 Honeypot Detector inicializado{Style.RESET_ALL}")
+                
+                # Flashbots Handler - Proteção MEV
+                self.flashbots_handler = FlashbotsHandler(self.web3, PRIVATE_KEY)
+                print(f"{Fore.GREEN}⚡ Flashbots Handler inicializado{Style.RESET_ALL}")
+                
+                # Whale Tracker - Rastreamento de baleias
+                self.whale_tracker = WhaleTracker(self.web3)
+                print(f"{Fore.GREEN}🐋 Whale Tracker inicializado{Style.RESET_ALL}")
+                
+                # Gas Optimizer - Otimização de gas
+                self.gas_optimizer = GasOptimizer(self.web3)
+                print(f"{Fore.GREEN}⛽ Gas Optimizer inicializado{Style.RESET_ALL}")
             
             # Verificar saldo ETH nativo (agora usado diretamente para trading)
             balance = self.web3.eth.get_balance(WALLET_ADDRESS)
