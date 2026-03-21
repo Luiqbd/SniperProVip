@@ -49,35 +49,35 @@ class DEXHandler:
     
     def _get_web3_instance(self, _recursion_depth=0):
         """Retorna instância Web3 disponível (principal ou backup)"""
-        # Evitar recursão infinita
-        if _recursion_depth > 3:
-            print(f"{Fore.RED}⚠️ Profundidade máxima de recursão atingida{Style.RESET_ALL}")
-            return self.web3
+        # Evitar recursão infinita - versão iterativa
+        if _recursion_depth > 5:
+            print(f"{Fore.RED}⚠️ Profundidade máxima atingida, usando fallback{Style.RESET_ALL}")
+            return self.web3 if self.web3 else self._create_web3_instance()
         
+        # Versão simplificada e segura - sem recursão
         try:
-            if self.web3.is_connected():
+            if self.web3 and hasattr(self.web3, 'is_connected') and self.web3.is_connected():
                 return self.web3
         except Exception:
             pass
-            
+        
+        # Tentar backup
         try:
-            if self.backup_web3 and self.backup_web3.is_connected():
-                print(f"{Fore.YELLOW}🔄 Usando RPC backup{Style.RESET_ALL}")
+            if self.backup_web3 and hasattr(self.backup_web3, 'is_connected') and self.backup_web3.is_connected():
                 return self.backup_web3
         except Exception:
             pass
-            
-        # Tentar outros RPCs
-        for rpc in self.rpc_list:
-            try:
-                temp_web3 = Web3(Web3.HTTPProvider(rpc))
-                if temp_web3.is_connected():
-                    print(f"{Fore.YELLOW}🔄 Usando RPC alternativo: {rpc[:30]}...{Style.RESET_ALL}")
-                    self.backup_web3 = temp_web3
-                    return temp_web3
-            except:
-                continue
-        return self.web3  # Fallback para principal mesmo se não conectado
+        
+        # Retornar o que temos (pode não estar conectado, mas evita crash)
+        return self.web3 if self.web3 else self._create_web3_instance()
+    
+    def _create_web3_instance(self):
+        """Cria nova instância Web3 - sem recursão"""
+        try:
+            from config import BASE_RPC_URL
+            return Web3(Web3.HTTPProvider(BASE_RPC_URL))
+        except:
+            return None
     
     def _get_cached_balance(self, cache_key: str, force_refresh: bool = False):
         """Obtém saldo do cache se válido"""
@@ -139,6 +139,20 @@ class DEXHandler:
     def get_router_abi(self) -> List:
         """ABI completa para roteadores de DEX incluindo swaps de tokens"""
         return [
+            # Uniswap V3 exactInputSingle - o método principal na Base!
+            {
+                "inputs": [
+                    {"internalType": "bytes", "name": "path", "type": "bytes"},
+                    {"internalType": "address", "name": "recipient", "type": "address"},
+                    {"internalType": "uint256", "name": "amountIn", "type": "uint256"},
+                    {"internalType": "uint256", "name": "amountOutMinimum", "type": "uint256"}
+                ],
+                "name": "exactInputSingle",
+                "outputs": [{"internalType": "uint256", "name": "amountOut", "type": "uint256"}],
+                "stateMutability": "payable",
+                "type": "function"
+            },
+            # Uniswap V2 style - para compatibilidade
             {
                 "inputs": [
                     {"internalType": "uint256", "name": "amountIn", "type": "uint256"},
@@ -570,7 +584,12 @@ class DEXHandler:
                 abi=self.get_router_abi()
             )
             
+            # Para swapExactETHForTokens, o path deve começar com WETH (ETH nativo não é reconhecido)
+            # Mas como estamos usando ETH nativo diretamente, precisamos usar WETH
             path = [WETH_ADDRESS, token_address] if is_buy else [token_address, WETH_ADDRESS]
+            
+            # Para Base, WETH é o endereço nativo do ETH wrapper
+            # O Uniswap V3 na Base usa WETH
             deadline = int(time.time()) + 600  # 10 minutos (aumentado)
             
             # Calcular amount_out_min com slippage mais flexível
@@ -603,29 +622,47 @@ class DEXHandler:
                 gas_price = web3_instance.to_wei(0.1, 'gwei')  # Fallback para 0.1 gwei (mínimo para Base)
                 print(f"⛽ Gas price: 0.1 gwei (fallback)")
             
-            # Preparar transação
+            # Preparar transação - Usar Uniswap V3 exactInputSingle
             if is_buy:
-                # Comprar token com ETH nativo - usando swapExactETHForTokens
-                # Não precisa mais de aprovação WETH!
-                
                 # Usar nonce correto
                 nonce = web3_instance.eth.get_transaction_count(WALLET_ADDRESS)
                 
-                # Usar swapExactETHForTokens - envia ETH diretamente!
-                # Parâmetros: amountIn, amountOutMin, path, to, deadline
-                transaction = router_contract.functions.swapExactETHForTokens(
-                    amount_in,        # amountIn (quantidade de ETH para trocar)
-                    amount_out_min,  # amountOutMin (mínimo de tokens aceitos)
-                    path,            # path (ETH -> token)
-                    WALLET_ADDRESS,  # to (endereço do receptor)
-                    deadline         # deadline (prazo máximo)
-                ).build_transaction({
-                    'from': WALLET_ADDRESS,
-                    'gas': 150000,  # Reduzido para Base
-                    'gasPrice': gas_price,  # SEMPRE baixo
-                    'nonce': nonce,
-                    'value': amount_in  # ETH enviado diretamente!
-                })
+                # Para Uniswap V3: exactInputSingle(tokenIn, tokenOut, fee, recipient, deadline, amountIn, amountOutMinimum)
+                # Fee: 3000 = 0.3%, 500 = 0.05%, 100 = 0.01%
+                try:
+                    # Tentar usar exactInputSingle primeiro (Uniswap V3)
+                    transaction = router_contract.functions.exactInputSingle(
+                        WETH_ADDRESS,           # tokenIn (WETH)
+                        token_address,          # tokenOut
+                        3000,                   # fee 0.3%
+                        WALLET_ADDRESS,         # recipient
+                        deadline,               # deadline
+                        amount_in,              # amountIn
+                        amount_out_min          # amountOutMinimum
+                    ).build_transaction({
+                        'from': WALLET_ADDRESS,
+                        'gas': 200000,          # Uniswap V3 precisa de mais gas
+                        'gasPrice': gas_price,
+                        'nonce': nonce,
+                        'value': amount_in      # ETH enviado diretamente!
+                    })
+                    print(f"📝 Usando exactInputSingle (Uniswap V3)")
+                except Exception as e:
+                    # Fallback para swapExactETHForTokens (Uniswap V2)
+                    print(f"📝 Fallback para swapExactETHForTokens: {str(e)[:30]}...")
+                    transaction = router_contract.functions.swapExactETHForTokens(
+                        amount_in,
+                        amount_out_min,
+                        [WETH_ADDRESS, token_address],
+                        WALLET_ADDRESS,
+                        deadline
+                    ).build_transaction({
+                        'from': WALLET_ADDRESS,
+                        'gas': 150000,
+                        'gasPrice': gas_price,
+                        'nonce': nonce,
+                        'value': amount_in
+                    })
             else:
                 # Vender token por ETH nativo - usando swapExactTokensForETH!
                 # Primeiro aprovar o token se necessário
